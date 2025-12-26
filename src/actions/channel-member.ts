@@ -3,7 +3,6 @@
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import type { User } from '@prisma/client';
 
 export async function getChannelMembers(channelId: string) {
   const session = await auth();
