@@ -35,7 +35,7 @@ export async function getChannelMembers(channelId: string) {
     orderBy: { joinedAt: 'asc' },
   });
 
-  return members.map((m) => ({
+  return members.map((m: (typeof members)[number]) => ({
     ...m,
     user: {
       ...m.user,
