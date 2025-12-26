@@ -4,7 +4,12 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { ChannelPostingPermission } from '@prisma/client';
+
+type ChannelPostingPermission =
+  | 'EVERYONE'
+  | 'ADMIN_ONLY'
+  | 'OWNER_ONLY'
+  | 'SELECTED_MEMBERS';
 
 const createChannelSchema = z.object({
   name: z
