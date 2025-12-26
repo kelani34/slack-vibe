@@ -4,6 +4,11 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+type TransactionClient = Omit<
+  typeof prisma,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>;
+
 export async function getChannelMembers(channelId: string) {
   const session = await auth();
   if (!session?.user?.id) return [];
@@ -57,7 +62,7 @@ export async function addChannelMember(channelId: string, userId: string) {
   const currentUserId = session.user.id;
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: TransactionClient) => {
       await tx.channelMember.create({
         data: {
           channelId,
@@ -105,7 +110,7 @@ export async function removeChannelMember(channelId: string, userId: string) {
       return { error: 'Cannot remove the channel creator' };
     }
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: TransactionClient) => {
       await tx.channelMember.deleteMany({
         where: {
           channelId,
@@ -136,7 +141,7 @@ export async function leaveChannel(channelId: string) {
   const userId = session.user.id;
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: TransactionClient) => {
       await tx.channelMember.deleteMany({
         where: {
           channelId,
@@ -175,7 +180,7 @@ export async function joinChannel(channelId: string) {
   }
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: TransactionClient) => {
       await tx.channelMember.create({
         data: {
           channelId,
