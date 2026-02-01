@@ -1,4 +1,4 @@
-import { Notification, NotificationType } from '@prisma/client';
+import { Notification } from '@prisma/client';
 import { create } from 'zustand';
 import { getNotifications, markAllNotificationsRead, markNotificationRead, markChannelNotificationsRead } from '@/actions/notification';
 
@@ -9,6 +9,7 @@ export type NotificationWithActor = Notification & {
     avatarUrl: string | null;
     email: string;
   };
+  channelId?: string;
 };
 
 interface NotificationState {

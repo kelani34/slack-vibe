@@ -33,6 +33,30 @@ export async function getNotifications(offset = 0, limit = 20) {
       take: limit,
     });
 
+    // Enhance notifications with channelId if resource is a message
+    const messageIds = notifications
+      .filter(n => 
+        n.resourceType === 'message' || 
+        ['MENTION', 'REPLY', 'REACTION', 'PIN'].includes(n.type)
+      )
+      .map(n => n.resourceId);
+
+    const messageChannelMap = new Map<string, string>();
+    
+    if (messageIds.length > 0) {
+      const messages = await prisma.message.findMany({
+        where: { id: { in: messageIds } },
+        select: { id: true, channelId: true },
+      });
+      messages.forEach(m => messageChannelMap.set(m.id, m.channelId));
+    }
+
+    const enhancedNotifications = notifications.map(n => ({
+      ...n,
+      channelId: messageChannelMap.get(n.resourceId) || 
+                 (n.resourceType === 'channel' ? n.resourceId : undefined)
+    }));
+
     const unreadCount = await prisma.notification.count({
       where: {
         userId: session.user.id,
@@ -40,7 +64,7 @@ export async function getNotifications(offset = 0, limit = 20) {
       },
     });
 
-    return { notifications, unreadCount };
+    return { notifications: enhancedNotifications, unreadCount };
   } catch (error) {
     console.error('Error fetching notifications:', error);
     return { error: 'Failed to fetch notifications' };

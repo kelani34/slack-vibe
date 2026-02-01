@@ -4,7 +4,9 @@ import * as React from 'react';
 import { GalleryVerticalEnd, Hash, Settings, Users, Bell } from 'lucide-react';
 import Link from 'next/link';
 import { NotificationSidebar } from '@/components/notification-sidebar';
+import { NotificationList } from '@/components/notification-list';
 import { useNotificationStore } from '@/stores/notification-store';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 import { NavChannels } from '@/components/nav-channels';
 import { NavUser } from '@/components/nav-user';
@@ -52,6 +54,7 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const router = useRouter();
   const { isOpen, setIsOpen, unreadCount } = useNotificationStore();
+  const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
 
   // Use ref for channels to avoid re-subscribing when unread counts change
   const channelsRef = React.useRef(channels);
@@ -172,17 +175,30 @@ export function AppSidebar({
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton 
-                isActive={isOpen} 
-                onClick={() => setIsOpen(!isOpen)}
-                tooltip="Activity"
-              >
-                <Bell className="h-4 w-4" />
-                <span>Activity</span>
-                {unreadCount > 0 && (
-                  <span className="ml-auto text-xs font-bold text-blue-500">{unreadCount}</span>
-                )}
-              </SidebarMenuButton>
+              <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <SidebarMenuButton 
+                    isActive={isOpen || isPopoverOpen} 
+                    tooltip="Activity"
+                  >
+                    <Bell className="h-4 w-4" />
+                    <span>Activity</span>
+                    {unreadCount > 0 && (
+                      <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white shadow-sm">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </SidebarMenuButton>
+                </PopoverTrigger>
+                <PopoverContent side="right" align="start" className="w-[350px] p-0">
+                  <div className="p-4 border-b">
+                    <h4 className="font-medium text-sm">Notifications</h4>
+                  </div>
+                  <div className="max-h-[500px] overflow-y-auto p-2">
+                    <NotificationList onItemClick={() => setIsPopoverOpen(false)} />
+                  </div>
+                </PopoverContent>
+              </Popover>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
