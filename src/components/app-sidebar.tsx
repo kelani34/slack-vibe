@@ -1,12 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { GalleryVerticalEnd, Hash, Settings, Users, Bell } from 'lucide-react';
+import { GalleryVerticalEnd, Hash, Settings, Users, Bell, Bookmark, CalendarClock, Search } from 'lucide-react';
 import Link from 'next/link';
 import { NotificationSidebar } from '@/components/notification-sidebar';
 import { NotificationList } from '@/components/notification-list';
 import { useNotificationStore } from '@/stores/notification-store';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { SearchDialog } from '@/components/search-dialog';
 
 import { NavChannels } from '@/components/nav-channels';
 import { NavUser } from '@/components/nav-user';
@@ -55,6 +56,18 @@ export function AppSidebar({
   const router = useRouter();
   const { isOpen, setIsOpen, unreadCount } = useNotificationStore();
   const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
+  const [isSearchOpen, setIsSearchOpen] = React.useState(false);
+  
+  React.useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setIsSearchOpen((open) => !open);
+      }
+    }
+    document.addEventListener('keydown', down);
+    return () => document.removeEventListener('keydown', down);
+  }, []);
 
   // Use ref for channels to avoid re-subscribing when unread counts change
   const channelsRef = React.useRef(channels);
@@ -163,6 +176,8 @@ export function AppSidebar({
   // Non-starred channels
   const nonStarredChannels = channels.filter((c) => !starredIds.has(c.id));
 
+  // ... (previous useEffects)
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -170,38 +185,19 @@ export function AppSidebar({
           workspaces={formattedWorkspaces}
           currentWorkspaceSlug={currentWorkspace?.slug}
         />
+        <SidebarMenu>
+           <SidebarMenuItem>
+             <SidebarMenuButton onClick={() => setIsSearchOpen(true)} tooltip="Search">
+                <Search className="h-4 w-4" />
+                <span>Search</span>
+                <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                  <span className="text-xs">⌘</span>K
+                </kbd>
+             </SidebarMenuButton>
+           </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <SidebarMenuButton 
-                    isActive={isOpen || isPopoverOpen} 
-                    tooltip="Activity"
-                  >
-                    <Bell className="h-4 w-4" />
-                    <span>Activity</span>
-                    {unreadCount > 0 && (
-                      <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white shadow-sm">
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                      </span>
-                    )}
-                  </SidebarMenuButton>
-                </PopoverTrigger>
-                <PopoverContent side="right" align="start" className="w-[500px] p-0">
-                  <div className="p-4 border-b">
-                    <h4 className="font-medium text-sm">Notifications</h4>
-                  </div>
-                  <div className="max-h-[500px] overflow-y-auto p-2">
-                    <NotificationList onItemClick={() => setIsPopoverOpen(false)} />
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
 
         {isOpen ? (
           <NotificationSidebar />
@@ -225,10 +221,53 @@ export function AppSidebar({
               showCreateButton={true}
             />
 
-            {/* Workspace Settings */}
+            {/* Workspace Settings and Activity */}
             <SidebarGroup className="group-data-[collapsible=icon]:hidden mt-auto">
+              {/* ... existing items ... */} 
               <SidebarGroupLabel>Workspace</SidebarGroupLabel>
               <SidebarMenu>
+                <SidebarMenuItem>
+                  <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <SidebarMenuButton 
+                        isActive={isOpen || isPopoverOpen} 
+                        tooltip="Activity"
+                      >
+                        <Bell className="h-4 w-4" />
+                        <span>Activity</span>
+                        {unreadCount > 0 && (
+                          <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white shadow-sm">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                          </span>
+                        )}
+                      </SidebarMenuButton>
+                    </PopoverTrigger>
+                    <PopoverContent side="right" align="start" className="w-[500px] p-0">
+                      <div className="p-4 border-b">
+                        <h4 className="font-medium text-sm">Notifications</h4>
+                      </div>
+                      <div className="max-h-[500px] overflow-y-auto p-2">
+                        <NotificationList onItemClick={() => setIsPopoverOpen(false)} />
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href={`/${currentWorkspace?.slug}/saved-items`}>
+                      <Bookmark className="h-4 w-4" />
+                      <span>Saved Items</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                 <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href={`/${currentWorkspace?.slug}/scheduled`}>
+                      <CalendarClock className="h-4 w-4" />
+                      <span>Scheduled</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <Link href={`/${currentWorkspace?.slug}/browse-channels`}>
@@ -262,6 +301,11 @@ export function AppSidebar({
         <NavUser user={user} />
       </SidebarFooter>
       <SidebarRail />
+      <SearchDialog 
+        open={isSearchOpen} 
+        onOpenChange={setIsSearchOpen}
+        workspaceSlug={currentWorkspace?.slug}
+      />
     </Sidebar>
   );
 }

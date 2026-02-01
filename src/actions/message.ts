@@ -253,7 +253,14 @@ export async function getMessages(channelId: string, cursor?: string) {
     return [];
   }
 
-  // Only get messages that are NOT scheduled for the future
+  // Get users hidden by current user
+  const hiddenUsers = await prisma.hiddenUser.findMany({
+    where: { userId: session.user.id },
+    select: { hiddenUserId: true },
+  });
+  const hiddenUserIds = hiddenUsers.map(h => h.hiddenUserId);
+
+  // Only get messages that are NOT scheduled for the future AND not from hidden users
   try {
     const messages = await prisma.message.findMany({
       cursor: cursor ? { id: cursor } : undefined,
@@ -261,6 +268,7 @@ export async function getMessages(channelId: string, cursor?: string) {
       where: {
         channelId,
         parentId: null,
+        userId: { notIn: hiddenUserIds },
         OR: [{ scheduledAt: null }, { scheduledAt: { lte: new Date() } }],
       },
       include: {
@@ -366,8 +374,18 @@ export async function getThreadMessages(parentId: string) {
   const session = await auth();
   if (!session?.user) return [];
 
+  // Get users hidden by current user
+  const hiddenUsers = await prisma.hiddenUser.findMany({
+    where: { userId: session.user.id },
+    select: { hiddenUserId: true },
+  });
+  const hiddenUserIds = hiddenUsers.map(h => h.hiddenUserId);
+
   const messages = await prisma.message.findMany({
-    where: { parentId },
+    where: { 
+      parentId,
+      userId: { notIn: hiddenUserIds },
+    },
     include: {
       user: true,
       attachments: true,
@@ -449,4 +467,145 @@ export async function deleteMessage(messageId: string) {
 
   revalidatePath('/');
   return { success: true };
+}
+
+export async function getBookmarkedMessages(workspaceSlug: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  // Find workspace ID first
+  const workspace = await prisma.workspace.findUnique({
+    where: { slug: workspaceSlug },
+    select: { id: true },
+  });
+
+  if (!workspace) return [];
+
+  // Get users hidden by current user
+  const hiddenUsers = await prisma.hiddenUser.findMany({
+    where: { userId: session.user.id },
+    select: { hiddenUserId: true },
+  });
+  const hiddenUserIds = hiddenUsers.map(h => h.hiddenUserId);
+
+  const bookmarks = await prisma.bookmarkedMessage.findMany({
+    where: {
+      userId: session.user.id,
+      message: {
+        channel: {
+          workspaceId: workspace.id,
+        },
+        userId: { notIn: hiddenUserIds },
+      },
+    },
+    include: {
+      message: {
+        include: {
+          user: true,
+          channel: true,
+          attachments: true,
+          reactions: true,
+          _count: {
+             select: { replies: true }
+          }
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  return bookmarks.map(b => b.message);
+}
+
+export async function searchMessages(query: string, workspaceSlug: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const workspace = await prisma.workspace.findUnique({
+    where: { slug: workspaceSlug },
+    select: { id: true },
+  });
+
+  if (!workspace) return [];
+
+  // Parse query for filters
+  // Supported: from:user, in:channel
+  // We'll use simple regex extraction
+  let contentQuery = query;
+  let fromUser: string | null = null;
+  let inChannel: string | null = null;
+
+  const fromMatch = query.match(/from:(\S+)/);
+  if (fromMatch) {
+    fromUser = fromMatch[1];
+    contentQuery = contentQuery.replace(fromMatch[0], '').trim();
+  }
+
+  const inMatch = query.match(/in:(\S+)/);
+  if (inMatch) {
+    inChannel = inMatch[1];
+    contentQuery = contentQuery.replace(inMatch[0], '').trim();
+  }
+
+  // Get hidden users to exclude
+  const hiddenUsers = await prisma.hiddenUser.findMany({
+    where: { userId: session.user.id },
+    select: { hiddenUserId: true },
+  });
+  const hiddenUserIds = hiddenUsers.map(h => h.hiddenUserId);
+
+  // Build where clause
+  const where: any = {
+    channel: {
+      workspaceId: workspace.id,
+    },
+    userId: { notIn: hiddenUserIds },
+    content: {
+      contains: contentQuery,
+      mode: 'insensitive',
+    },
+    isDeleted: false,
+    OR: [{ scheduledAt: null }, { scheduledAt: { lte: new Date() } }],
+  };
+
+  if (fromUser) {
+    // Basic fuzzy match for user name... ideally exact match on specific fields but names vary
+    // OR we resolve user first. For MVP let's search user name via relation?
+    // Prisma doesn't support easy "user name contains X" inside a message query simply like that 
+    // unless we use `user: { name: { contains: ... } }`.
+    // Let's try that.
+    where.user = {
+      name: { contains: fromUser, mode: 'insensitive' },
+    };
+  }
+
+  if (inChannel) {
+    // Filter by channel name
+    // Important: we already have channel filter via workspaceId, so we merge
+    where.channel = {
+      ...where.channel,
+      name: { contains: inChannel, mode: 'insensitive' },
+    };
+  }
+
+  try {
+    const messages = await prisma.message.findMany({
+      where,
+      include: {
+        user: true,
+        channel: true,
+        attachments: true,
+        reactions: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    return messages;
+  } catch (error) {
+    console.error('searchMessages error:', error);
+    return [];
+  }
 }

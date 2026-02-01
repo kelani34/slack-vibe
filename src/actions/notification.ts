@@ -88,12 +88,29 @@ export async function markNotificationRead(notificationId: string) {
         isRead: true,
       },
     });
-    
-    // We don't strictly need revalidatePath if using realtime or local state optimistically,
-    // but good to have for server components.
     return { success: true };
   } catch (error) {
     return { error: 'Failed to mark notification as read' };
+  }
+}
+
+export async function markNotificationUnread(notificationId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: 'Unauthorized' };
+
+  try {
+    await prisma.notification.update({
+      where: {
+        id: notificationId,
+        userId: session.user.id,
+      },
+      data: {
+        isRead: false,
+      },
+    });
+    return { success: true };
+  } catch (error) {
+    return { error: 'Failed to mark notification as unread' };
   }
 }
 

@@ -399,6 +399,19 @@ export function MessageItem({
                   !isArchived && (
                     <>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleBookmark}>
+                        {bookmarked ? (
+                          <>
+                            <BookmarkCheck className="h-4 w-4 mr-2" />
+                            Remove bookmark
+                          </>
+                        ) : (
+                          <>
+                            <Bookmark className="h-4 w-4 mr-2" />
+                            Bookmark message
+                          </>
+                        )}
+                      </DropdownMenuItem>
                       {/* Edit only for own messages within 30 mins */}
                       {currentUserId === message.userId &&
                         differenceInMinutes(

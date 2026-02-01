@@ -23,7 +23,7 @@ interface NotificationListProps {
 export function NotificationList({ onItemClick }: NotificationListProps) {
   const router = useRouter();
   const params = useParams();
-  const { notifications, isLoading, markAsRead, setIsOpen } = useNotificationStore();
+  const { notifications, isLoading, markAsRead, markAsUnread, setIsOpen } = useNotificationStore();
   const [navigatingId, setNavigatingId] = React.useState<string | null>(null);
 
   const handleNavigate = async (notification: NotificationWithActor) => {
@@ -54,7 +54,11 @@ export function NotificationList({ onItemClick }: NotificationListProps) {
 
   const handleMarkRead = async (e: React.MouseEvent, notification: NotificationWithActor) => {
     e.stopPropagation();
-    await markAsRead(notification.id);
+    if (notification.isRead) {
+      await markAsUnread(notification.id);
+    } else {
+      await markAsRead(notification.id);
+    }
   };
 
   const getIcon = (type: NotificationType) => {

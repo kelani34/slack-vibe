@@ -1,6 +1,6 @@
 import { Notification } from '@prisma/client';
 import { create } from 'zustand';
-import { getNotifications, markAllNotificationsRead, markNotificationRead, markChannelNotificationsRead } from '@/actions/notification';
+import { getNotifications, markAllNotificationsRead, markNotificationRead, markNotificationUnread, markChannelNotificationsRead } from '@/actions/notification';
 
 export type NotificationWithActor = Notification & {
   actor: {
@@ -23,6 +23,7 @@ interface NotificationState {
   setIsOpen: (isOpen: boolean) => void;
   fetchNotifications: () => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
+  markAsUnread: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   markChannelAsRead: (channelId: string) => Promise<void>;
   addNotification: (notification: NotificationWithActor) => void;
@@ -55,7 +56,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   markAsRead: async (id) => {
-    // Optimistic update
     const { notifications, unreadCount } = get();
     const target = notifications.find(n => n.id === id);
     if (!target || target.isRead) return;
@@ -71,7 +71,25 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       await markNotificationRead(id);
     } catch (error) {
       console.error('Failed to mark notification read', error);
-      // Revert if needed, but usually fine to ignore
+    }
+  },
+
+  markAsUnread: async (id) => {
+    const { notifications, unreadCount } = get();
+    const target = notifications.find(n => n.id === id);
+    if (!target || !target.isRead) return;
+
+    set({
+      notifications: notifications.map(n => 
+        n.id === id ? { ...n, isRead: false } : n
+      ),
+      unreadCount: unreadCount + 1
+    });
+
+    try {
+      await markNotificationUnread(id);
+    } catch (error) {
+      console.error('Failed to mark notification unread', error);
     }
   },
 
@@ -90,10 +108,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   markChannelAsRead: async (channelId) => {
-    // Optimistic? Hard to know exactly which notifications correspond without complex logic.
-    // So we'll trigger the server action and fetch fresh notifications?
-    // Or just let realtime/next fetch handle it.
-    // For now, simple call.
     try {
       await markChannelNotificationsRead(channelId);
       const res = await getNotifications();

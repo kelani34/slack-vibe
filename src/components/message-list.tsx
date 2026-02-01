@@ -26,6 +26,7 @@ interface MessageListProps {
   isArchived?: boolean;
   lastReadAt?: Date;
   workspaceId: string;
+  messages?: Message[];
 }
 
 // Group messages from same user within 5 minutes
@@ -59,6 +60,7 @@ export function MessageList({
   isArchived = false,
   lastReadAt,
   workspaceId,
+  messages: providedMessages,
 }: MessageListProps) {
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -78,13 +80,14 @@ export function MessageList({
         // Cursor is the ID of the oldest message in the batch (first item because we reversed it in action)
         return lastPage[0]?.id as string;
       },
+      enabled: !providedMessages, // Only fetch if we don't have static messages
     });
 
   // Flatten and reverse pages to get messages in chronological order
   // pages are [NewestBatch, OlderBatch...]
   // Each batch is [Oldest...Newest]
   // We want [OlderBatch, NewestBatch]
-  const messages = data?.pages.slice().reverse().flat() || [];
+  const messages = providedMessages || (data?.pages.slice().reverse().flat() || []);
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0,
