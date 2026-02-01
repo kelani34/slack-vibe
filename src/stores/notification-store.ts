@@ -10,6 +10,7 @@ export type NotificationWithActor = Notification & {
     email: string;
   };
   channelId?: string;
+  resourceContent?: string;
 };
 
 interface NotificationState {

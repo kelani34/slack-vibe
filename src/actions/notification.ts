@@ -41,21 +41,24 @@ export async function getNotifications(offset = 0, limit = 20) {
       )
       .map(n => n.resourceId);
 
-    const messageChannelMap = new Map<string, string>();
+    const messageChannelMap = new Map<string, { channelId: string, content: string }>();
     
     if (messageIds.length > 0) {
       const messages = await prisma.message.findMany({
         where: { id: { in: messageIds } },
-        select: { id: true, channelId: true },
+        select: { id: true, channelId: true, content: true },
       });
-      messages.forEach(m => messageChannelMap.set(m.id, m.channelId));
+      messages.forEach(m => messageChannelMap.set(m.id, { channelId: m.channelId, content: m.content }));
     }
 
-    const enhancedNotifications = notifications.map(n => ({
-      ...n,
-      channelId: messageChannelMap.get(n.resourceId) || 
-                 (n.resourceType === 'channel' ? n.resourceId : undefined)
-    }));
+    const enhancedNotifications = notifications.map(n => {
+      const details = messageChannelMap.get(n.resourceId);
+      return {
+        ...n,
+        channelId: details?.channelId || (n.resourceType === 'channel' ? n.resourceId : undefined),
+        resourceContent: details?.content
+      };
+    });
 
     const unreadCount = await prisma.notification.count({
       where: {

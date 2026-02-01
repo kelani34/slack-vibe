@@ -171,19 +171,61 @@ export async function sendMessage(formData: FormData) {
       }
     }
 
-    // Notify thread parent author if reply
+    // Notify thread participants if reply
     if (validated.data.parentId) {
+      // 1. Get thread parent author
       const parentMessage = await prisma.message.findUnique({
         where: { id: validated.data.parentId },
         select: { userId: true },
       });
 
-      if (parentMessage && parentMessage.userId !== session.user.id) {
-         // Don't double notify if they are already mentioned
-         // But maybe we should? Usually they are distinct types.
-         // Let's notify as REPLY.
+      // 2. Get all other participants in the thread
+      const threadMessages = await prisma.message.findMany({
+        where: { parentId: validated.data.parentId },
+        select: { userId: true },
+        distinct: ['userId'],
+      });
+
+      // 3. Collect unique user IDs to notify
+      const recipients = new Set<string>();
+
+      // Add parent author
+      if (parentMessage) recipients.add(parentMessage.userId);
+
+      // Add other participants
+      threadMessages.forEach((msg) => recipients.add(msg.userId));
+
+      // Remove current user (sender)
+      recipients.delete(session.user.id);
+
+      // Remove already mentioned users (they got MENTION notification)
+      // Note: mentionedUserIds is defined in the previous block if validated.data.content exists.
+      // We need to access it. It seems I need to widen the scope or ensure I can access it.
+      // Looking at the file, mentionedUserIds is defined inside `if (validated.data.content)`.
+      // I should duplicate the set logic or move the variable up if I want to be perfectly clean, 
+      // but for now, let's assume I can't access it easily without refactoring the previous block.
+      // Actually, looking at the code structure provided in view_file, `mentionedUserIds` is scoped to the `if`.
+      // I will just re-extract mentions or just notify them as REPLY as well?
+      // "Subscribed to thread" is usually a separate reason. 
+      // Slack usually doesn't double notify for Mention + Thread.
+      // Let's re-parse mentions to be safe or just accept double notification risk?
+      // Better: Re-parse is cheap.
+      
+      const mentionedIds = new Set<string>();
+       if (validated.data.content) {
+        const mentionMatches = validated.data.content.matchAll(/data-type="mention" data-id="([^"]+)"/g);
+        for (const match of mentionMatches) {
+          mentionedIds.add(match[1]);
+        }
+      }
+      
+      // Remove mentioned users from reply recipients
+      mentionedIds.forEach(id => recipients.delete(id));
+
+      // 4. Send notifications
+      for (const recipientId of recipients) {
          await createNotification({
-            userId: parentMessage.userId,
+            userId: recipientId,
             actorId: session.user.id,
             type: NotificationType.REPLY,
             resourceId: message.id,

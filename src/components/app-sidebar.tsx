@@ -190,7 +190,7 @@ export function AppSidebar({
                     )}
                   </SidebarMenuButton>
                 </PopoverTrigger>
-                <PopoverContent side="right" align="start" className="w-[350px] p-0">
+                <PopoverContent side="right" align="start" className="w-[500px] p-0">
                   <div className="p-4 border-b">
                     <h4 className="font-medium text-sm">Notifications</h4>
                   </div>
