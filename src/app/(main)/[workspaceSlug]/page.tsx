@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { redirect } from 'next/navigation';
+import { auth } from '@/auth';
 
 export default async function WorkspacePage({
   params,
@@ -29,6 +30,41 @@ export default async function WorkspacePage({
     );
   }
 
+  /* 
+   * Redirect priority:
+   * 1. First channel user is a member of
+   * 2. 'general' channel if it exists (and public)
+   * 3. Any public channel
+   */
+  const session = await auth();
+  const userId = session?.user?.id;
+
+  if (userId) {
+     const memberChannel = await prisma.channelMember.findFirst({
+        where: {
+           userId: userId,
+           channel: {
+              workspaceId: workspace.id,
+              isArchived: false
+           }
+        },
+        include: {
+           channel: true
+        },
+        orderBy: {
+           channel: {
+              createdAt: 'asc'
+           }
+        }
+     });
+
+     if (memberChannel) {
+        redirect(`/${workspaceSlug}/${memberChannel.channel.id}`);
+     }
+  }
+
+  // Fallback to first channel found (likely general) if user has no memberships yet?
+  // Or maybe they just joined and have no channels.
   if (workspace.channels.length > 0) {
     redirect(`/${workspaceSlug}/${workspace.channels[0].id}`);
   }

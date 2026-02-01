@@ -4,6 +4,8 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { createNotification } from './notification';
+import { NotificationType } from '@prisma/client';
 
 const sendMessageSchema = z.object({
   channelId: z.string().min(1, 'Channel ID is required'),
@@ -146,6 +148,50 @@ export async function sendMessage(formData: FormData) {
       },
     });
 
+
+
+    // Notify mentioned users
+    if (validated.data.content) {
+      const mentionMatches = validated.data.content.matchAll(/data-type="mention" data-id="([^"]+)"/g);
+      const mentionedUserIds = new Set<string>();
+      for (const match of mentionMatches) {
+        mentionedUserIds.add(match[1]);
+      }
+
+      for (const mentionedUserId of mentionedUserIds) {
+        if (mentionedUserId !== session.user.id) {
+          await createNotification({
+            userId: mentionedUserId,
+            actorId: session.user.id,
+            type: NotificationType.MENTION,
+            resourceId: message.id,
+            resourceType: 'message',
+          });
+        }
+      }
+    }
+
+    // Notify thread parent author if reply
+    if (validated.data.parentId) {
+      const parentMessage = await prisma.message.findUnique({
+        where: { id: validated.data.parentId },
+        select: { userId: true },
+      });
+
+      if (parentMessage && parentMessage.userId !== session.user.id) {
+         // Don't double notify if they are already mentioned
+         // But maybe we should? Usually they are distinct types.
+         // Let's notify as REPLY.
+         await createNotification({
+            userId: parentMessage.userId,
+            actorId: session.user.id,
+            type: NotificationType.REPLY,
+            resourceId: message.id,
+            resourceType: 'message',
+         });
+      }
+    }
+
     revalidatePath(`/`);
 
     if (validated.data.scheduledAt) {
@@ -176,6 +222,11 @@ export async function getMessages(channelId: string, cursor?: string) {
         OR: [{ scheduledAt: null }, { scheduledAt: { lte: new Date() } }],
       },
       include: {
+        channel: {
+          select: {
+            workspaceId: true,
+          },
+        },
         user: true,
         attachments: true,
         reactions: true,

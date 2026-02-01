@@ -10,6 +10,7 @@ import { ProfileSidebar } from '@/components/profile-sidebar';
 import { PinnedBookmarkedPanel } from '@/components/pinned-bookmarked-panel';
 import { useThreadStore } from '@/stores/thread-store';
 import { useProfileStore } from '@/stores/profile-store';
+import { useNotificationStore } from '@/stores/notification-store';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 import { ChannelAccessDenied } from '@/components/channel/channel-access-denied';
@@ -47,6 +48,7 @@ export function ChatPanel({
   currentUser,
   isChannelMember = true,
   lastReadAt,
+  workspaceId,
 }: ChatPanelProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -105,6 +107,12 @@ export function ChatPanel({
       supabase.removeChannel(memberChannel);
     };
   }, [channelId, router, userId]);
+
+  // Auto-read notifications for this channel
+  const markChannelAsRead = useNotificationStore(state => state.markChannelAsRead);
+  useEffect(() => {
+    markChannelAsRead(channelId);
+  }, [channelId, markChannelAsRead]);
 
   if (!isMember) {
     return (
@@ -263,6 +271,7 @@ export function ChatPanel({
           userRole={userRole}
           isArchived={isArchived}
           lastReadAt={lastReadAt}
+          workspaceId={workspaceId}
         />
 
         <MessageInput

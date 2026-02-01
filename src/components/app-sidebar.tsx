@@ -1,8 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { GalleryVerticalEnd, Hash, Settings, Users } from 'lucide-react';
+import { GalleryVerticalEnd, Hash, Settings, Users, Bell } from 'lucide-react';
 import Link from 'next/link';
+import { NotificationSidebar } from '@/components/notification-sidebar';
+import { useNotificationStore } from '@/stores/notification-store';
 
 import { NavChannels } from '@/components/nav-channels';
 import { NavUser } from '@/components/nav-user';
@@ -49,6 +51,7 @@ export function AppSidebar({
   ...props
 }: AppSidebarProps) {
   const router = useRouter();
+  const { isOpen, setIsOpen, unreadCount } = useNotificationStore();
 
   // Use ref for channels to avoid re-subscribing when unread counts change
   const channelsRef = React.useRef(channels);
@@ -87,6 +90,21 @@ export function AppSidebar({
           filter: `userId=eq.${user.id}`,
         },
         () => {
+          router.refresh();
+        }
+      )
+      // Listen for new notifications
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `userId=eq.${user.id}`,
+        },
+        () => {
+          // Fetch fresh notifications to get actor details and update count
+          useNotificationStore.getState().fetchNotifications();
           router.refresh();
         }
       )
@@ -151,54 +169,78 @@ export function AppSidebar({
         />
       </SidebarHeader>
       <SidebarContent>
-        {/* Starred Channels Section */}
-        <NavChannels
-          channels={starredChannels}
-          workspaceSlug={currentWorkspace?.slug}
-          workspaceId={currentWorkspace?.id}
-          sectionLabel="Starred"
-          showCreateButton={false}
-        />
-
-        {/* All Channels Section */}
-        <NavChannels
-          channels={nonStarredChannels}
-          workspaceSlug={currentWorkspace?.slug}
-          workspaceId={currentWorkspace?.id}
-          sectionLabel="Channels"
-          showCreateButton={true}
-        />
-
-        {/* Workspace Settings */}
-        <SidebarGroup className="group-data-[collapsible=icon]:hidden mt-auto">
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+        <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href={`/${currentWorkspace?.slug}/browse-channels`}>
-                  <Hash className="h-4 w-4" />
-                  <span>Browse Channels</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href={`/${currentWorkspace?.slug}/members`}>
-                  <Users className="h-4 w-4" />
-                  <span>Members</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href={`/${currentWorkspace?.slug}/settings`}>
-                  <Settings className="h-4 w-4" />
-                  <span>Settings</span>
-                </Link>
+              <SidebarMenuButton 
+                isActive={isOpen} 
+                onClick={() => setIsOpen(!isOpen)}
+                tooltip="Activity"
+              >
+                <Bell className="h-4 w-4" />
+                <span>Activity</span>
+                {unreadCount > 0 && (
+                  <span className="ml-auto text-xs font-bold text-blue-500">{unreadCount}</span>
+                )}
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
+
+        {isOpen ? (
+          <NotificationSidebar />
+        ) : (
+          <>
+            {/* Starred Channels Section */}
+            <NavChannels
+              channels={starredChannels}
+              workspaceSlug={currentWorkspace?.slug}
+              workspaceId={currentWorkspace?.id}
+              sectionLabel="Starred"
+              showCreateButton={false}
+            />
+
+            {/* All Channels Section */}
+            <NavChannels
+              channels={nonStarredChannels}
+              workspaceSlug={currentWorkspace?.slug}
+              workspaceId={currentWorkspace?.id}
+              sectionLabel="Channels"
+              showCreateButton={true}
+            />
+
+            {/* Workspace Settings */}
+            <SidebarGroup className="group-data-[collapsible=icon]:hidden mt-auto">
+              <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href={`/${currentWorkspace?.slug}/browse-channels`}>
+                      <Hash className="h-4 w-4" />
+                      <span>Browse Channels</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href={`/${currentWorkspace?.slug}/members`}>
+                      <Users className="h-4 w-4" />
+                      <span>Members</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href={`/${currentWorkspace?.slug}/settings`}>
+                      <Settings className="h-4 w-4" />
+                      <span>Settings</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

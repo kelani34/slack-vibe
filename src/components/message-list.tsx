@@ -25,6 +25,7 @@ interface MessageListProps {
   userRole?: string;
   isArchived?: boolean;
   lastReadAt?: Date;
+  workspaceId: string;
 }
 
 // Group messages from same user within 5 minutes
@@ -57,6 +58,7 @@ export function MessageList({
   userRole,
   isArchived = false,
   lastReadAt,
+  workspaceId,
 }: MessageListProps) {
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -413,6 +415,7 @@ export function MessageList({
                 currentUserId={currentUserId}
                 userRole={userRole}
                 isArchived={isArchived}
+                workspaceId={workspaceId}
               />
             </div>
           );

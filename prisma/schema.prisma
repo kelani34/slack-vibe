@@ -35,6 +35,9 @@ model User {
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  notificationsReceived Notification[] @relation("UserNotifications")
+  notificationsTriggered Notification[] @relation("UserTriggeredNotifications")
   
   @@map("users")
 }
@@ -304,6 +307,34 @@ model PinnedMessage {
   
   @@unique([channelId, messageId])
   @@map("pinned_messages")
+}
+
+enum NotificationType {
+  MENTION
+  REPLY
+  REACTION
+  CHANNEL_ADD
+  CHANNEL_REMOVE
+  CHANNEL_ARCHIVE
+  CHANNEL_DELETE
+  PIN
+}
+
+model Notification {
+  id           String           @id @default(uuid())
+  userId       String
+  actorId      String
+  type         NotificationType
+  resourceId   String
+  resourceType String           // e.g. "message", "channel"
+  isRead       Boolean          @default(false)
+  
+  user         User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  actor        User             @relation("UserTriggeredNotifications", fields: [actorId], references: [id], onDelete: Cascade)
+  
+  createdAt    DateTime         @default(now())
+  
+  @@map("notifications")
 }
 
 

@@ -3,6 +3,8 @@
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { createNotification } from './notification';
+import { NotificationType } from '@prisma/client';
 
 // Toggle reaction on a message
 export async function toggleReaction(messageId: string, emoji: string) {
@@ -23,13 +25,28 @@ export async function toggleReaction(messageId: string, emoji: string) {
     if (existing) {
       await prisma.reaction.delete({ where: { id: existing.id } });
     } else {
-      await prisma.reaction.create({
+      const reaction = await prisma.reaction.create({
         data: {
           messageId,
           userId: session.user.id,
           emoji,
         },
+        include: {
+          message: {
+            select: { userId: true },
+          },
+        },
       });
+
+      if (reaction.message.userId !== session.user.id) {
+        await createNotification({
+          userId: reaction.message.userId,
+          actorId: session.user.id,
+          type: NotificationType.REACTION,
+          resourceId: messageId,
+          resourceType: 'message',
+        });
+      }
     }
 
     return { success: true };
@@ -140,6 +157,22 @@ export async function pinMessage(messageId: string, channelId: string) {
         data: { isPinned: true },
       }),
     ]);
+
+    // Notify message author about the pin
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      select: { userId: true },
+    });
+
+    if (message && message.userId !== session.user.id) {
+      await createNotification({
+        userId: message.userId,
+        actorId: session.user.id,
+        type: NotificationType.PIN,
+        resourceId: messageId,
+        resourceType: 'message',
+      });
+    }
 
     revalidatePath('/');
     return { success: true };

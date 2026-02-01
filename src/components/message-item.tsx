@@ -42,6 +42,9 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { FilePreviewModal } from '@/components/file-preview-modal';
 import { useSendMessage } from '@/hooks/use-send-message';
+import parse, { domToReact, type Element } from 'html-react-parser';
+
+import { UserHoverCard } from '@/components/user-hover-card';
 
 interface MessageItemProps {
   message: any;
@@ -57,6 +60,7 @@ interface MessageItemProps {
   currentUserId?: string;
   userRole?: string;
   isArchived?: boolean;
+  workspaceId?: string;
 }
 
 export function MessageItem({
@@ -73,7 +77,9 @@ export function MessageItem({
   currentUserId,
   userRole,
   isArchived = false,
+  workspaceId,
 }: MessageItemProps) {
+
   const queryClient = useQueryClient();
   const pathname = usePathname();
   const [bookmarked, setBookmarked] = useState(isBookmarked);
@@ -128,21 +134,7 @@ export function MessageItem({
     toast.info('Retrying...');
   };
 
-  const processedContent = (() => {
-    if (!currentUserId || !message.content) return message.content;
-    return message.content.replace(
-      /(<span[^>]*data-type="mention"[^>]*>)/g,
-      (tag: string) => {
-        const idMatch = tag.match(/data-id="([^"]+)"/);
-        if (idMatch && idMatch[1] === currentUserId) {
-          if (tag.includes('class="mention"')) {
-            return tag.replace('class="mention"', 'class="mention mention-me"');
-          }
-        }
-        return tag;
-      }
-    );
-  })();
+
 
   // Handle highlight animation
   useEffect(() => {
@@ -446,17 +438,19 @@ export function MessageItem({
       {/* Avatar column */}
       <div className={`flex-shrink-0 ${compact ? 'w-7' : 'w-8'}`}>
         {showAvatar && (
-          <button
-            onClick={() => onProfileSelect?.(message.userId)}
-            className="hover:opacity-80 transition-opacity"
-          >
-            <Avatar className={compact ? 'size-7' : 'size-8'}>
-              <AvatarImage src={message.user?.avatarUrl || ''} />
-              <AvatarFallback className={compact ? 'text-xs' : ''}>
-                {message.user?.name?.[0] || '?'}
-              </AvatarFallback>
-            </Avatar>
-          </button>
+          <UserHoverCard userId={message.userId} workspaceId={workspaceId || message.channel?.workspaceId || ''}>
+            <button
+              onClick={() => onProfileSelect?.(message.userId)}
+              className="hover:opacity-80 transition-opacity"
+            >
+              <Avatar className={compact ? 'size-7' : 'size-8'}>
+                <AvatarImage src={message.user?.avatarUrl || ''} />
+                <AvatarFallback className={compact ? 'text-xs' : ''}>
+                  {message.user?.name?.[0] || '?'}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+          </UserHoverCard>
         )}
       </div>
 
@@ -464,12 +458,14 @@ export function MessageItem({
       <div className="flex-1 min-w-0">
         {showAvatar && (
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => onProfileSelect?.(message.userId)}
-              className="font-semibold text-sm hover:underline"
-            >
-              {message.user?.name || 'Unknown'}
-            </button>
+            <UserHoverCard userId={message.userId} workspaceId={workspaceId || message.channel?.workspaceId || ''}>
+              <button
+                onClick={() => onProfileSelect?.(message.userId)}
+                className="font-semibold text-sm hover:underline"
+              >
+                {message.user?.name || 'Unknown'}
+              </button>
+            </UserHoverCard>
             <span className="text-xs text-muted-foreground">
               {format(new Date(message.createdAt), 'h:mm a')}
             </span>
@@ -511,19 +507,47 @@ export function MessageItem({
               className={`text-sm prose prose-sm dark:prose-invert max-w-none [&>p]:my-0 ${
                 message.isPending ? 'opacity-70' : ''
               } ${message.isError ? 'text-destructive' : ''}`}
-              dangerouslySetInnerHTML={{ __html: processedContent }}
-              onClick={(e) => {
-                if (message.isPending) return;
-                const target = e.target as HTMLElement;
-                const mention = target.closest('.mention');
-                if (mention) {
-                  const userId = mention.getAttribute('data-id');
-                  if (userId) {
-                    onProfileSelect?.(userId);
+            >
+              {parse(message.content || '', {
+                replace: (domNode) => {
+                  if (
+                    domNode.type === 'tag' &&
+                    domNode.name === 'span' &&
+                    (domNode.attribs?.['data-type'] === 'mention' ||
+                     domNode.attribs?.['class']?.includes('mention'))
+                  ) {
+                    const userId = domNode.attribs['data-id'];
+                    const isMe = userId === currentUserId;
+                    
+                    // Add mention-me class if needed
+                    const className = domNode.attribs['class'] || '';
+                    const finalClassName = isMe && !className.includes('mention-me') 
+                      ? `${className} mention-me` 
+                      : className;
+
+                    const { class: _, ...restAttribs } = domNode.attribs;
+
+                    return (
+                      <UserHoverCard
+                        userId={userId}
+                        workspaceId={workspaceId || message.channel?.workspaceId || ''}
+                      >
+                        <span
+                          {...restAttribs}
+                          className={`${finalClassName} cursor-pointer hover:underline`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (userId) onProfileSelect?.(userId);
+                          }}
+                        >
+                          {domToReact((domNode as Element).children as any)}
+                        </span>
+                      </UserHoverCard>
+                    );
                   }
-                }
-              }}
-            />
+                },
+              })}
+            </div>
             {message.isEdited && (
               <span className="text-xs text-muted-foreground">(edited)</span>
             )}

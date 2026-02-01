@@ -3,6 +3,8 @@
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { createNotification } from './notification';
+import { NotificationType } from '@prisma/client';
 
 type TransactionClient = Omit<
   typeof prisma,
@@ -80,6 +82,16 @@ export async function addChannelMember(channelId: string, userId: string) {
           userId: currentUserId,
         },
       });
+    });
+
+
+
+    await createNotification({
+      userId,
+      actorId: currentUserId,
+      type: NotificationType.CHANNEL_ADD,
+      resourceId: channelId,
+      resourceType: 'channel',
     });
 
     revalidatePath('/');

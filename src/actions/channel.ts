@@ -4,6 +4,8 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import { createNotification } from './notification';
+import { NotificationType } from '@prisma/client';
 
 type ChannelPostingPermission =
   | 'EVERYONE'
@@ -182,7 +184,27 @@ export async function deleteChannel(channelId: string) {
     return { error: 'Only admins can delete channels' };
   }
 
+  // Get members to notify
+  const members = await prisma.channelMember.findMany({
+    where: { channelId },
+    select: { userId: true },
+  });
+
   await prisma.channel.delete({ where: { id: channelId } });
+
+  // Notify members
+  for (const member of members) {
+    if (member.userId !== session.user.id) {
+       await createNotification({
+         userId: member.userId,
+         actorId: session.user.id,
+         type: NotificationType.CHANNEL_DELETE,
+         resourceId: channelId, // Note: Resource deleted, but ID preserved for notification text/history
+         resourceType: 'channel',
+       });
+    }
+  }
+
   revalidatePath(`/`);
   return { success: true };
 }
@@ -329,6 +351,26 @@ export async function updateChannel(
     }
   });
 
+  // Notify members if archived
+  if (data.isArchived) {
+    const members = await prisma.channelMember.findMany({
+      where: { channelId },
+      select: { userId: true },
+    });
+    
+    for (const member of members) {
+      if (member.userId !== userId) {
+        await createNotification({
+          userId: member.userId,
+          actorId: userId,
+          type: NotificationType.CHANNEL_ARCHIVE,
+          resourceId: channelId,
+          resourceType: 'channel',
+        });
+      }
+    }
+  }
+
   revalidatePath(`/`);
   return { success: true };
 }
@@ -399,4 +441,62 @@ export async function getDistinctTopics(workspaceId: string) {
   const allTopics = new Set<string>();
   channels.forEach((c) => c.topics.forEach((t) => allTopics.add(t)));
   return Array.from(allTopics).sort();
+}
+
+export async function getOrCreateDirectMessage(workspaceId: string, otherUserId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: 'Unauthorized' };
+
+  const currentUserId = session.user.id;
+
+  // 1. Try to find existing DM channel
+  // We look for a PRIVATE channel where BOTH users are members.
+  // Note: This simple query might return a group DM if we supported them, 
+  // but for 1:1 we check membership.
+  const channels = await prisma.channel.findMany({
+    where: {
+      workspaceId,
+      type: 'PRIVATE',
+      members: {
+        every: {
+          userId: { in: [currentUserId, otherUserId] }
+        }
+      }
+    },
+    include: {
+      members: true
+    }
+  });
+
+  // Filter for exact match of 2 members
+  const existingTwosome = channels.find(c => c.members.length === 2);
+
+  if (existingTwosome) {
+    return { success: true, channelId: existingTwosome.id };
+  }
+
+  // 2. Create new DM channel
+  try {
+    const channel = await prisma.channel.create({
+      data: {
+        name: `dm-${Date.now()}`, // Internal name, UI should show user name
+        type: 'PRIVATE',
+        workspaceId,
+        creatorId: currentUserId,
+        members: {
+          create: [
+            { userId: currentUserId },
+            { userId: otherUserId }
+          ]
+        }
+      }
+    });
+    
+    revalidatePath(`/${workspaceId}`);
+    return { success: true, channelId: channel.id };
+
+  } catch (err) {
+    console.error('Failed to create DM', err);
+    return { error: 'Failed to create conversation' };
+  }
 }
