@@ -150,3 +150,33 @@ export async function joinWorkspaceByCode(inviteCode: string) {
     return { error: 'Failed to join workspace' };
   }
 }
+
+export async function getWorkspaceMembers(workspaceSlug: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const workspace = await prisma.workspace.findUnique({
+    where: { slug: workspaceSlug },
+    select: { id: true },
+  });
+
+  if (!workspace) return [];
+
+  const members = await prisma.workspaceMember.findMany({
+    where: { workspaceId: workspace.id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          avatarUrl: true,
+          image: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  return members.map(m => m.user);
+}

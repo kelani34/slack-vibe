@@ -162,3 +162,29 @@ export async function getUserDetailsForCard(userId: string, workspaceId: string)
     joinedAt: data.joinedAt,
   };
 }
+
+export async function updateUserPreferences(preferences: {
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+}) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error('Unauthorized');
+  }
+
+  try {
+    const user = await prisma.user.update({
+      where: { id: session.user.id },
+      data: {
+        emailNotifications: preferences.emailNotifications,
+        pushNotifications: preferences.pushNotifications,
+      },
+    });
+
+    revalidatePath('/settings');
+    return { success: true, user };
+  } catch (error) {
+    console.error('Failed to update preferences:', error);
+    return { success: false, error: 'Failed to update preferences' };
+  }
+}

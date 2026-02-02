@@ -128,6 +128,20 @@ export async function getChannels(workspaceId: string) {
   return channelsWithCounts;
 }
 
+export async function getWorkspaceChannels(slug: string) {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const workspace = await prisma.workspace.findUnique({
+    where: { slug },
+    select: { id: true },
+  });
+
+  if (!workspace) return [];
+
+  return getChannels(workspace.id);
+}
+
 // Get ALL channels in workspace (for browse page)
 export async function getAllChannels(workspaceId: string) {
   const session = await auth();

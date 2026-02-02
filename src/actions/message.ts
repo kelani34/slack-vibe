@@ -531,23 +531,35 @@ export async function searchMessages(query: string, workspaceSlug: string) {
   if (!workspace) return [];
 
   // Parse query for filters
-  // Supported: from:user, in:channel
-  // We'll use simple regex extraction
+  // Supported: from:user, in:channel, has:image|file|video, is:pinned, after:date, before:date
   let contentQuery = query;
-  let fromUser: string | null = null;
-  let inChannel: string | null = null;
+  
+  // Helper to extract and remove patterns
+  const extract = (regex: RegExp) => {
+    const match = contentQuery.match(regex);
+    if (match) {
+      contentQuery = contentQuery.replace(match[0], '').trim();
+      // match[0] is full string
+      // match[1] is the value group (quoted or unquoted)
+      // We need to handle cleaner sub-groups if we use ("..."|...)
+      // Let's refine the regexes below to just match match[1] as the value wrapper?
+      // Actually simpler: just return the valid part.
+      // Group 1 is content inside quotes (due to "([^"]*)")
+      // Group 2 is unquoted content (due to (\S+))
+      return match[1] || match[2];
+    }
+    return null;
+  };
 
-  const fromMatch = query.match(/from:(\S+)/);
-  if (fromMatch) {
-    fromUser = fromMatch[1];
-    contentQuery = contentQuery.replace(fromMatch[0], '').trim();
-  }
+  // Regex that captures: "value" OR value
+  const valRegex = (key: string) => new RegExp(`${key}:\\s*(?:"([^"]*)"|(\\S+))`, 'i');
 
-  const inMatch = query.match(/in:(\S+)/);
-  if (inMatch) {
-    inChannel = inMatch[1];
-    contentQuery = contentQuery.replace(inMatch[0], '').trim();
-  }
+  const fromUser = extract(valRegex('from'));
+  const inChannel = extract(valRegex('in'));
+  const hasType = extract(valRegex('has')); // image, file, video, attachment
+  const isStatus = extract(valRegex('is')); // pinned
+  const afterDate = extract(valRegex('after'));
+  const beforeDate = extract(valRegex('before'));
 
   // Get hidden users to exclude
   const hiddenUsers = await prisma.hiddenUser.findMany({
@@ -571,23 +583,49 @@ export async function searchMessages(query: string, workspaceSlug: string) {
   };
 
   if (fromUser) {
-    // Basic fuzzy match for user name... ideally exact match on specific fields but names vary
-    // OR we resolve user first. For MVP let's search user name via relation?
-    // Prisma doesn't support easy "user name contains X" inside a message query simply like that 
-    // unless we use `user: { name: { contains: ... } }`.
-    // Let's try that.
-    where.user = {
-      name: { contains: fromUser, mode: 'insensitive' },
-    };
+    if (fromUser.toLowerCase() === 'me') {
+        where.userId = session.user.id;
+    } else {
+        where.user = {
+            name: { contains: fromUser, mode: 'insensitive' },
+        };
+    }
   }
 
   if (inChannel) {
-    // Filter by channel name
-    // Important: we already have channel filter via workspaceId, so we merge
     where.channel = {
       ...where.channel,
       name: { contains: inChannel, mode: 'insensitive' },
     };
+  }
+  
+  if (hasType) {
+    if (hasType === 'image') {
+        where.attachments = { some: { type: { startsWith: 'image/' } } };
+    } else if (hasType === 'video') {
+        where.attachments = { some: { type: { startsWith: 'video/' } } };
+    } else if (hasType === 'file') {
+        // Assume anything not image/video is generic file, or just any attachment
+        where.attachments = { some: {} };
+    }
+  }
+
+  if (isStatus) {
+    if (isStatus === 'pinned') {
+        where.isPinned = true;
+    }
+  }
+
+  if (afterDate || beforeDate) {
+    where.createdAt = {};
+    if (afterDate) {
+        const date = new Date(afterDate);
+        if (!isNaN(date.getTime())) where.createdAt.gte = date;
+    }
+    if (beforeDate) {
+        const date = new Date(beforeDate);
+        if (!isNaN(date.getTime())) where.createdAt.lte = date;
+    }
   }
 
   try {

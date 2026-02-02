@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { notFound } from 'next/navigation';
 import { Copy } from 'lucide-react';
+import { NotificationSettings } from '@/components/notification-settings';
 
 export default async function SettingsPage({
   params,
@@ -23,9 +24,15 @@ export default async function SettingsPage({
 
   const { workspaceSlug } = await params;
 
-  const workspace = await prisma.workspace.findUnique({
-    where: { slug: workspaceSlug },
-  });
+  const [workspace, currentUser] = await Promise.all([
+    prisma.workspace.findUnique({
+      where: { slug: workspaceSlug },
+    }),
+    prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { emailNotifications: true, pushNotifications: true }
+    })
+  ]);
 
   if (!workspace) return notFound();
 
@@ -79,6 +86,13 @@ export default async function SettingsPage({
           </p>
         </CardContent>
       </Card>
+
+      <NotificationSettings 
+        initialPreferences={{
+          emailNotifications: currentUser?.emailNotifications ?? true,
+          pushNotifications: currentUser?.pushNotifications ?? true,
+        }} 
+      />
 
       <Card className="border-destructive">
         <CardHeader>

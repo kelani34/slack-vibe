@@ -39,6 +39,9 @@ model User {
   notificationsReceived Notification[] @relation("UserNotifications")
   notificationsTriggered Notification[] @relation("UserTriggeredNotifications")
   
+  emailNotifications Boolean   @default(true)
+  pushNotifications  Boolean   @default(true) // For future use if we add push
+
   @@map("users")
 }
 
