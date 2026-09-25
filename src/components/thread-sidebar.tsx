@@ -3,6 +3,7 @@
 import { getThreadMessages, getMessageById } from '@/actions/message';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { MessageInput } from '@/components/message-input';
 import { MessageItem } from '@/components/message-item';
 import { createClient } from '@/lib/supabase/client';
@@ -67,7 +68,7 @@ export function ThreadSidebar({
   });
 
   // Fetch replies
-  const { data: replies, isLoading } = useQuery({
+  const { data: replies, isLoading, isError, refetch } = useQuery({
     queryKey: ['messages', channelId, parentMessageId],
     queryFn: () => getThreadMessages(parentMessageId),
   });
@@ -180,30 +181,57 @@ export function ThreadSidebar({
 
           <div className="space-y-1">
             {isLoading ? (
-              <div className="text-sm text-muted-foreground">Loading...</div>
+              <div role="status" aria-label="Loading replies" className="space-y-4 py-2">
+                {Array.from({ length: 3 }, (_, index) => (
+                  <div key={index} aria-hidden="true" className="flex items-start gap-3">
+                    <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                    <div className="flex-1 space-y-2 pt-1">
+                      <Skeleton className="h-3 w-28" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : isError && !replies ? (
+              <div role="alert" className="flex flex-col items-center gap-3 py-6 text-center">
+                <p className="text-sm text-muted-foreground">Couldn’t load replies.</p>
+                <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                  Try again
+                </Button>
+              </div>
             ) : (
-              replies?.map((message, index) => {
-                const previousMessage =
-                  index > 0 ? replies[index - 1] : undefined;
-                const showAvatar = shouldShowAvatar(message, previousMessage);
+              <>
+                {isError && (
+                  <div role="alert" className="mb-3 flex items-center justify-between gap-3 border-b pb-3 text-sm text-muted-foreground">
+                    <span>Couldn’t refresh replies.</span>
+                    <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                      Try again
+                    </Button>
+                  </div>
+                )}
+                {replies?.map((message, index) => {
+                  const previousMessage =
+                    index > 0 ? replies[index - 1] : undefined;
+                  const showAvatar = shouldShowAvatar(message, previousMessage);
 
-                return (
-                  <MessageItem
-                    key={message.id}
-                    message={message}
-                    showAvatar={showAvatar}
-                    onProfileSelect={handleProfileSelect}
-                    onForward={onForward}
-                    showThreadIndicator={false}
-                    compact={true}
-                    channelId={channelId}
-                    isHighlighted={highlightedMessageId === message.id}
-                    currentUserId={currentUserId}
-                    userRole={userRole}
-                    isArchived={isArchived}
-                  />
-                );
-              })
+                  return (
+                    <MessageItem
+                      key={message.id}
+                      message={message}
+                      showAvatar={showAvatar}
+                      onProfileSelect={handleProfileSelect}
+                      onForward={onForward}
+                      showThreadIndicator={false}
+                      compact={true}
+                      channelId={channelId}
+                      isHighlighted={highlightedMessageId === message.id}
+                      currentUserId={currentUserId}
+                      userRole={userRole}
+                      isArchived={isArchived}
+                    />
+                  );
+                })}
+              </>
             )}
           </div>
         </div>

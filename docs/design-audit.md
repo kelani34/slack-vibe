@@ -58,7 +58,8 @@ The current product does not read as a generic generated dashboard. The conversa
 - **Location:** profile, thread and member surfaces use “Loading...” or centered spinners, while notifications use skeletons
 - **Category:** Interaction design and perceived performance
 - **Impact:** Layout can jump and users receive little indication of what will appear.
-- **Required resolution:** Use surface-shaped skeletons for initial content, compact in-place progress for actions, and retained content for background refresh. Do not add artificial delay or route entrance animation.
+- **Implemented slice, 25 September 2026:** Profile, thread reply, and channel-member loading now use content-shaped skeletons inside named `role="status"` regions. Shared skeletons pulse only when motion is allowed. Profile, thread, current-member, add-member, and forwarding destination-channel query failures now use alerts with explicit retry actions; stale profile/reply/member/channel-option content stays usable when a background refresh fails. Forwarding also announces loading and an empty destination list. Component tests assert accessible states, content shapes, reduced-motion behavior, retry, and retained content.
+- **Remaining:** Inventory empty/denied/archived/revoked surfaces and action progress, then apply retryable error states to remaining query-backed surfaces. Do not add artificial delay or route entrance animation. Independent QA remains NOT RUN.
 
 ### P2: Shell height uses the dynamic viewport — implementation complete, device QA open
 
@@ -110,7 +111,7 @@ No feature family is exempt from the shared design, mobile, motion, speed and ac
 1. **D01, token roles — source implementation complete:** app-owned state colors use semantic roles with source-wide raw-color rejection and light/dark contrast fixtures; light visual, forced-colors and independent-QA evidence remain.
 2. **D02, interaction accessibility — source implementation complete:** app-owned icon controls have source-wide naming and shared compact-target contracts, plus exact-artifact phone evidence; keyboard, assistive-technology, physical-device and independent-QA evidence remain.
 3. **D03, adaptive surfaces — source implementation complete:** shell, Dialog, Popover, Activity, channel details and file preview use dynamic viewport bounds with 320×568 and 390×844 exact-artifact evidence; tablet, zoom, keyboard, focus-return, physical-device and independent-QA evidence stay open.
-4. **D04, state language:** standardize skeleton, empty, progress, error, denied, archived and revoked states.
+4. **D04, state language — in progress:** profile, thread, and channel-member loading use accessible, surface-shaped skeletons with reduced-motion behavior; profile, thread, both channel-member queries, and forwarding destination lookup have retry paths, preserving cached content during failed refreshes. Cross-route empty/progress/error/denied/archived/revoked consistency remains open.
 5. **D05, motion foundation:** implement shared M01–M30 tokens and interruption/reduced-motion rules before expanding animation volume.
 6. **D06, route evidence:** capture desktop, phone and tablet references for each enabled route family and link the artifacts to the QA ledger.
 

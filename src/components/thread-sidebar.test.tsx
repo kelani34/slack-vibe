@@ -1,10 +1,15 @@
-import { act, render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { ThreadSidebar } from './thread-sidebar';
 
 const fixture = vi.hoisted(() => ({
   handlers: [] as Array<(payload: { eventType: string; new: Record<string, unknown> }) => void>,
   invalidateQueries: vi.fn().mockResolvedValue(undefined),
+  repliesLoading: false,
+  repliesError: false,
+  repliesData: undefined as Array<{ id: string; userId: string; createdAt: string }> | undefined,
+  refetchReplies: vi.fn(),
 }));
 
 vi.mock('@/actions/message', () => ({
@@ -29,7 +34,12 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: undefined, isLoading: false }),
+  useQuery: () => ({
+    data: fixture.repliesData,
+    isLoading: fixture.repliesLoading,
+    isError: fixture.repliesError,
+    refetch: fixture.refetchReplies,
+  }),
   useQueryClient: () => ({ invalidateQueries: fixture.invalidateQueries }),
 }));
 vi.mock('@/stores/profile-store', () => ({
@@ -40,6 +50,61 @@ vi.mock('@/stores/profile-store', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   fixture.handlers = [];
+  fixture.repliesLoading = false;
+  fixture.repliesError = false;
+  fixture.repliesData = undefined;
+});
+
+it('shows an accessible reply-shaped skeleton while replies load', () => {
+  fixture.repliesLoading = true;
+  const { container } = render(
+    <ThreadSidebar
+      parentMessageId="root-1"
+      channelId="channel-1"
+      onClose={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByRole('status', { name: 'Loading replies' })).toBeInTheDocument();
+  const skeletons = container.querySelectorAll('[data-slot="skeleton"]');
+  expect(skeletons).toHaveLength(9);
+  skeletons.forEach((skeleton) => expect(skeleton).toHaveClass('motion-reduce:animate-none'));
+  expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+});
+
+it('offers a retry when the replies request fails', async () => {
+  fixture.repliesError = true;
+  const user = userEvent.setup();
+  render(
+    <ThreadSidebar
+      parentMessageId="root-1"
+      channelId="channel-1"
+      onClose={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t load replies.');
+  await user.click(screen.getByRole('button', { name: 'Try again' }));
+  expect(fixture.refetchReplies).toHaveBeenCalledOnce();
+});
+
+it('keeps cached replies visible and offers a retry when refresh fails', async () => {
+  fixture.repliesError = true;
+  fixture.repliesData = [{ id: 'reply-1', userId: 'user-1', createdAt: '2026-09-25T12:00:00.000Z' }];
+  const user = userEvent.setup();
+  render(
+    <ThreadSidebar
+      parentMessageId="root-1"
+      channelId="channel-1"
+      onClose={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t refresh replies.');
+  expect(screen.getByText('1 reply')).toBeInTheDocument();
+  expect(screen.queryByText('Couldn’t load replies.')).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Try again' }));
+  expect(fixture.refetchReplies).toHaveBeenCalledOnce();
 });
 
 it('refreshes the thread and root timeline when a reply arrives', () => {

@@ -8,7 +8,7 @@ Commits are evidence-bearing delivery units. Each pushed change must be small en
 
 ## Branch and slice rules
 
-1. Work on a named branch, using `codex/<short-scope>` for agent-created branches.
+1. Work on a named descriptive branch such as `feature/<topic>`, `fix/<topic>`, `design/<topic>`, `test/<topic>` or `docs/<topic>`. Never include `codex` in a new branch name.
 2. Select one dependency-ready vertical slice from [P00–P14](delivery-plan.md). Record the relevant `F`, `R`, `W`, `MR`, repair and acceptance-case IDs before changing behavior.
 3. Keep schema, migration, server policy, UI behavior and tests together when splitting them would create an unusable or unsafe intermediate state.
 4. Separate unrelated refactors, generated cleanup and speculative foundations. Do not hide unrelated changes inside a feature commit.
