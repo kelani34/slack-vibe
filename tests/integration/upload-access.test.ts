@@ -82,6 +82,31 @@ describe('file upload access boundaries (A01 / A05)', () => {
     expect(createAdminClient).toHaveBeenCalledOnce();
   });
 
+  it('rejects file bytes that do not match the declared video MIME type', async () => {
+    const { channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+
+    const result = await uploadFile(
+      formFor(channel.id, new File(['not a video'], 'clip.mp4', { type: 'video/mp4' })),
+    );
+
+    expect(result).toEqual({ error: 'File content does not match its declared type' });
+    expect(createAdminClient).not.toHaveBeenCalled();
+  });
+
+  it('accepts an MP4 whose file-type box matches its declared MIME type', async () => {
+    const { channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    const mp4Header = new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d]);
+
+    const result = await uploadFile(
+      formFor(channel.id, new File([mp4Header], 'clip.mp4', { type: 'video/mp4' })),
+    );
+
+    expect(result).toMatchObject({ name: 'clip.mp4', type: 'video/mp4' });
+    expect(createAdminClient).toHaveBeenCalledOnce();
+  });
+
   it('rejects SVG uploads because active document content is not an image allowlist entry', async () => {
     const { channel } = await fixture();
     await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });

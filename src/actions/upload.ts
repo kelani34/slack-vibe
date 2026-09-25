@@ -17,7 +17,7 @@ function isAllowedFileType(type: string) {
   ].includes(type);
 }
 
-async function hasSupportedImageSignature(file: File) {
+async function hasSupportedFileSignature(file: File) {
   const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
   const startsWith = (...signature: number[]) =>
     signature.every((byte, index) => bytes[index] === byte);
@@ -41,6 +41,27 @@ async function hasSupportedImageSignature(file: File) {
       return startsWith(0x49, 0x49, 0x2a, 0x00) || startsWith(0x4d, 0x4d, 0x00, 0x2a);
     case 'image/x-icon':
       return startsWith(0x00, 0x00, 0x01, 0x00);
+    case 'video/mp4':
+      return bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70 &&
+        ['isom', 'iso2', 'mp41', 'mp42', 'avc1', 'M4V '].includes(String.fromCharCode(...bytes.slice(8, 12)));
+    case 'video/quicktime':
+      return bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70 &&
+        String.fromCharCode(...bytes.slice(8, 10)) === 'qt';
+    case 'video/webm':
+      return startsWith(0x1a, 0x45, 0xdf, 0xa3);
+    case 'audio/mpeg':
+      return startsWith(0x49, 0x44, 0x33) ||
+        (bytes[0] === 0xff && [0xfb, 0xf3, 0xf2].includes(bytes[1]));
+    case 'audio/wav':
+    case 'audio/x-wav':
+      return startsWith(0x52, 0x49, 0x46, 0x46) &&
+        String.fromCharCode(...bytes.slice(8, 12)) === 'WAVE';
+    case 'audio/ogg':
+      return startsWith(0x4f, 0x67, 0x67, 0x53);
+    case 'audio/flac':
+      return startsWith(0x66, 0x4c, 0x61, 0x43);
+    case 'application/pdf':
+      return startsWith(0x25, 0x50, 0x44, 0x46, 0x2d);
     default:
       return false;
   }
@@ -66,7 +87,9 @@ export async function uploadFile(formData: FormData) {
   if (!isAllowedFileType(file.type)) {
     return { error: 'File type is not supported' };
   }
-  if (file.type.startsWith('image/') && !(await hasSupportedImageSignature(file))) {
+  const hasCheckedSignature = file.type.startsWith('image/') || file.type.startsWith('video/') ||
+    file.type.startsWith('audio/') || file.type === 'application/pdf';
+  if (hasCheckedSignature && !(await hasSupportedFileSignature(file))) {
     return { error: 'File content does not match its declared type' };
   }
 

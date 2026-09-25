@@ -386,7 +386,7 @@ Owner: W09. Required layers: I,S,E. State: **PARTIAL DEVELOPER-TESTED SLICE / IN
 - **TC-F29-04** — Failed message send retains usable upload state without exposing orphaned objects.
 - **TC-F29-05** — Expired grant, logout and lost membership prevent renewal/finalization.
 - **TC-F29-06** — Orphan cleanup and concurrent finalization never delete a committed attachment; server memory remains bounded.
-- Developer evidence: `tests/integration/upload-access.test.ts` first reproduced an accepted text payload declared as PNG and an accepted active SVG upload; the server now rejects those cases before storage access and accepts a PNG signature. This is only image-signature prefix validation. Private object storage, legacy public URLs, full format parsing, attachment finalization, bounded server transfer and independent QA remain open.
+- Developer evidence: `tests/integration/upload-access.test.ts` reproduces mismatched PNG and MP4 payloads plus active SVG; the server rejects them before storage access and accepts matching PNG and MP4 prefixes. Supported image/video/audio/PDF types receive a bounded 12-byte prefix check. This is not full decoding or scanning. Private object storage, legacy public URLs, Office document validation, attachment finalization, bounded server transfer and independent QA remain open.
 
 ### F30: File/image preview/download
 
