@@ -19,9 +19,12 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { Pin, Bookmark, MessageSquare } from 'lucide-react';
 import { messageHtmlToText } from '@/lib/message-html';
+import { messageQueryKeys } from '@/lib/message-query-keys';
 
 interface PinnedBookmarkedPanelProps {
   channelId: string;
+  workspaceId: string;
+  currentUserId: string;
   onMessageClick: (messageId: string, parentId?: string | null) => void;
 }
 
@@ -31,19 +34,18 @@ type PreviewMessage = PinnedMessage['message'];
 
 export function PinnedBookmarkedPanel({
   channelId,
+  workspaceId,
+  currentUserId,
   onMessageClick,
 }: PinnedBookmarkedPanelProps) {
   const { data: pinnedMessages } = useQuery({
-    queryKey: ['pinned-messages', channelId],
-    queryFn: () => getPinnedMessages(channelId),
+    queryKey: messageQueryKeys.pinned(currentUserId, workspaceId, channelId),
+    queryFn: () => getPinnedMessages(channelId, workspaceId),
   });
 
   const { data: bookmarkedMessages } = useQuery({
-    queryKey: ['bookmarked-messages', channelId],
-    queryFn: async () => {
-      const all = await getBookmarkedMessages();
-      return all.filter((bookmark) => bookmark.message.channelId === channelId);
-    },
+    queryKey: messageQueryKeys.bookmarks(currentUserId, workspaceId, channelId),
+    queryFn: () => getBookmarkedMessages(channelId, workspaceId),
   });
 
   const pinnedCount = pinnedMessages?.length || 0;

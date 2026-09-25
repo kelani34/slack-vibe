@@ -269,6 +269,8 @@ export function ChatPanel({
         {/* Pinned/Bookmarked panel */}
         <PinnedBookmarkedPanel
           channelId={channelId}
+          workspaceId={workspaceId}
+          currentUserId={userId}
           onMessageClick={handlePinnedMessageClick}
         />
         <MessageList

@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { cancelScheduledMessage, deleteMessage, editMessage, getMessageById, getMessageContext, getMessages, getScheduledMessages, searchMessages, sendMessage, sendScheduledMessageNow, updateScheduledMessage } from '@/actions/message';
-import { forwardMessage, getBookmarkedMessages, isMessageBookmarked, pinMessage, unpinMessage } from '@/actions/message-actions';
+import { forwardMessage, getBookmarkedMessages, getPinnedMessages, isMessageBookmarked, pinMessage, unpinMessage } from '@/actions/message-actions';
 
 const actor = vi.hoisted(() => ({ id: '' }));
 const notificationMock = vi.hoisted(() => ({ createNotification: vi.fn() }));
@@ -648,10 +648,24 @@ describe('message access boundaries (F04 / A01-A03)', () => {
   });
 
   it('does not expose or confirm bookmarks for messages outside the channel', async () => {
-    const { message } = await fixture();
+    const { channel, workspace, message } = await fixture();
     await prisma.bookmarkedMessage.create({ data: { userId: actor.id, messageId: message.id } });
-    expect(await getBookmarkedMessages()).toEqual([]);
+    expect(await getBookmarkedMessages(channel.id, workspace.id)).toEqual([]);
     expect(await isMessageBookmarked(message.id)).toBe(false);
     expect(await prisma.bookmarkedMessage.count({ where: { userId: actor.id, messageId: message.id } })).toBe(1);
+  });
+
+  it('hides pinned and bookmarked messages after workspace removal with stale channel membership', async () => {
+    const { workspace, channel, message } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    await prisma.bookmarkedMessage.create({ data: { userId: actor.id, messageId: message.id } });
+    expect(await pinMessage(message.id, channel.id)).toEqual({ success: true });
+
+    await prisma.workspaceMember.delete({
+      where: { workspaceId_userId: { workspaceId: workspace.id, userId: actor.id } },
+    });
+
+    expect(await getBookmarkedMessages(channel.id, workspace.id)).toEqual([]);
+    expect(await getPinnedMessages(channel.id, workspace.id)).toEqual([]);
   });
 });

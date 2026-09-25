@@ -228,7 +228,9 @@ export function MessageItem({
         toast.error(result.error);
       } else {
         setBookmarked(false);
-        queryClient.invalidateQueries({ queryKey: ['bookmarked-messages'] });
+        queryClient.invalidateQueries({
+          queryKey: messageQueryKeys.bookmarks(cacheActorId, workspaceId, message.channelId),
+        });
         toast.success('Bookmark removed');
       }
     } else {
@@ -237,7 +239,9 @@ export function MessageItem({
         toast.error(result.error);
       } else {
         setBookmarked(true);
-        queryClient.invalidateQueries({ queryKey: ['bookmarked-messages'] });
+        queryClient.invalidateQueries({
+          queryKey: messageQueryKeys.bookmarks(cacheActorId, workspaceId, message.channelId),
+        });
         toast.success('Message bookmarked');
       }
     }
@@ -254,7 +258,9 @@ export function MessageItem({
         toast.error(result.error);
       } else {
         queryClient.invalidateQueries({ queryKey: workspaceMessagesKey });
-        queryClient.invalidateQueries({ queryKey: ['pinned-messages', cId] });
+        queryClient.invalidateQueries({
+          queryKey: messageQueryKeys.pinned(cacheActorId, workspaceId, cId),
+        });
         toast.success('Message unpinned');
       }
     } else {
@@ -263,7 +269,9 @@ export function MessageItem({
         toast.error(result.error);
       } else {
         queryClient.invalidateQueries({ queryKey: workspaceMessagesKey });
-        queryClient.invalidateQueries({ queryKey: ['pinned-messages', cId] });
+        queryClient.invalidateQueries({
+          queryKey: messageQueryKeys.pinned(cacheActorId, workspaceId, cId),
+        });
         toast.success('Message pinned to channel');
       }
     }
