@@ -194,12 +194,18 @@ export function MessageItem({
           }]
         : [],
     );
+    const pendingAttachments = attachments.flatMap((attachment, index) =>
+      attachment.fileObject instanceof File && attachment.uploadIntentId && !attachment.isUploaded
+        ? [{ index, uploadIntentId: attachment.uploadIntentId }]
+        : [],
+    );
 
     retrySendMessage({
       html: message.content,
       files,
       clientMutationId: message.clientMutationId ?? undefined,
       uploadedAttachments,
+      pendingAttachments,
     });
 
     // Remove the failed message from cache

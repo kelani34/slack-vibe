@@ -91,8 +91,12 @@ export async function createUploadIntent(input: unknown) {
   const { channelId, name, type, size } = parsed.data;
   if (!isAllowedFileType(type)) return { error: 'File type is not supported' };
 
-  const member = await prisma.channelMember.findUnique({
-    where: { channelId_userId: { channelId, userId: session.user.id } },
+  const member = await prisma.channelMember.findFirst({
+    where: {
+      channelId,
+      userId: session.user.id,
+      channel: { workspace: { members: { some: { userId: session.user.id } } } },
+    },
     select: { id: true },
   });
   if (!member) return { error: 'Not a member of this channel' };
@@ -122,6 +126,38 @@ export async function createUploadIntent(input: unknown) {
     return { ...intentResult(intent.id, name, type, size), storageBucket: PRIVATE_ATTACHMENT_BUCKET, storagePath, token: data.token };
   } catch {
     await prisma.uploadIntent.delete({ where: { id: intent.id } }).catch(() => undefined);
+    return { error: 'File upload is unavailable' };
+  }
+}
+
+export async function renewUploadIntent(uploadIntentId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { error: 'Unauthorized' };
+  if (!z.string().uuid().safeParse(uploadIntentId).success) return { error: 'Uploaded file is unavailable' };
+
+  const intent = await prisma.uploadIntent.findFirst({
+    where: {
+      id: uploadIntentId,
+      userId: session.user.id,
+      storageBucket: PRIVATE_ATTACHMENT_BUCKET,
+      status: 'PENDING',
+      expiresAt: { gt: new Date() },
+      channel: {
+        members: { some: { userId: session.user.id } },
+        workspace: { members: { some: { userId: session.user.id } } },
+      },
+    },
+    select: { id: true, name: true, type: true, size: true, storageBucket: true, storagePath: true },
+  });
+  if (!intent) return { error: 'Uploaded file is unavailable' };
+
+  try {
+    const { data, error } = await createAdminClient()
+      .storage.from(PRIVATE_ATTACHMENT_BUCKET)
+      .createSignedUploadUrl(intent.storagePath, { upsert: false });
+    if (error || !data?.token) throw new Error('Could not create upload grant');
+    return { ...intentResult(intent.id, intent.name, intent.type, intent.size), storageBucket: intent.storageBucket, storagePath: intent.storagePath, token: data.token };
+  } catch {
     return { error: 'File upload is unavailable' };
   }
 }

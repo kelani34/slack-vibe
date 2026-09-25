@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prisma } from '@/lib/prisma';
-import { createUploadIntent, finalizeUploadIntent } from '@/actions/upload';
+import { createUploadIntent, finalizeUploadIntent, renewUploadIntent } from '@/actions/upload';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const actor = vi.hoisted(() => ({ id: '' }));
@@ -102,6 +102,62 @@ describe('file upload access boundaries (A01 / A05 / F29)', () => {
     expect(storage.createSignedUploadUrl).toHaveBeenCalledWith(result.storagePath, { upsert: false });
     const saved = await prisma.uploadIntent.findUnique({ where: { id: result.uploadIntentId } });
     expect(saved).toMatchObject({ userId: actor.id, channelId: channel.id, status: 'PENDING', size: 4 });
+  });
+
+  it('renews a path-scoped grant for the same pending intent after an interrupted upload', async () => {
+    const { channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    const created = await startIntent(inputFor(channel.id));
+
+    expect(await renewUploadIntent(created.uploadIntentId)).toMatchObject({
+      uploadIntentId: created.uploadIntentId,
+      storageBucket: 'workspace-files-private',
+      storagePath: created.storagePath,
+      token: 'signed-upload-token',
+      name: 'note.txt',
+    });
+    expect(storage.createSignedUploadUrl).toHaveBeenCalledTimes(2);
+    expect(storage.createSignedUploadUrl).toHaveBeenLastCalledWith(created.storagePath, { upsert: false });
+  });
+
+  it('rejects upload creation and renewal after workspace removal even when channel membership is stale', async () => {
+    const { channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    const created = await startIntent(inputFor(channel.id));
+    const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: channel.workspaceId } });
+    await prisma.workspaceMember.delete({ where: { workspaceId_userId: { workspaceId: workspace.id, userId: actor.id } } });
+    storage.createSignedUploadUrl.mockClear();
+
+    expect(await renewUploadIntent(created.uploadIntentId)).toEqual({ error: 'Uploaded file is unavailable' });
+    expect(await createUploadIntent(inputFor(channel.id))).toEqual({ error: 'Not a member of this channel' });
+    expect(storage.createSignedUploadUrl).not.toHaveBeenCalled();
+  });
+
+  it('does not renew another user, expired, uploaded or inaccessible upload intents', async () => {
+    const { channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    const ownerId = actor.id;
+    const pending = await startIntent(inputFor(channel.id));
+
+    actor.id = randomUUID();
+    await prisma.user.create({ data: { id: actor.id, email: `${actor.id}@example.test` } });
+    expect(await renewUploadIntent(pending.uploadIntentId)).toEqual({ error: 'Uploaded file is unavailable' });
+    expect(storage.createSignedUploadUrl).toHaveBeenCalledOnce();
+
+    actor.id = ownerId;
+    await prisma.channelMember.delete({ where: { channelId_userId: { channelId: channel.id, userId: ownerId } } });
+    expect(await renewUploadIntent(pending.uploadIntentId)).toEqual({ error: 'Uploaded file is unavailable' });
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: ownerId } });
+
+    await prisma.uploadIntent.update({ where: { id: pending.uploadIntentId }, data: { createdAt: new Date(Date.now() - 2_000), expiresAt: new Date(Date.now() - 1_000) } });
+    expect(await renewUploadIntent(pending.uploadIntentId)).toEqual({ error: 'Uploaded file is unavailable' });
+
+    const uploaded = await startIntent(inputFor(channel.id));
+    await prisma.uploadIntent.update({ where: { id: uploaded.uploadIntentId }, data: { status: 'UPLOADED' } });
+    expect(await renewUploadIntent(uploaded.uploadIntentId)).toEqual({ error: 'Uploaded file is unavailable' });
+    expect(await renewUploadIntent('not-a-uuid')).toEqual({ error: 'Uploaded file is unavailable' });
+    actor.id = '';
+    expect(await renewUploadIntent(pending.uploadIntentId)).toEqual({ error: 'Unauthorized' });
   });
 
   it('verifies the exact private object and marks its intent uploaded only after finalization', async () => {

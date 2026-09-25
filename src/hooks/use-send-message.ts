@@ -1,21 +1,24 @@
 import { sendMessage } from '@/actions/message';
-import { createUploadIntent, finalizeUploadIntent } from '@/actions/upload';
-import { createClient } from '@/lib/supabase/client';
+import { createUploadIntent, finalizeUploadIntent, renewUploadIntent } from '@/actions/upload';
+import { uploadPrivateFile } from '@/lib/private-file-upload';
 import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Attachment, Reaction } from '@prisma/client';
 import { messageQueryKeys } from '@/lib/message-query-keys';
+import { useState } from 'react';
 
 type SendResult = Awaited<ReturnType<typeof sendMessage>>;
 type SentMessage = Extract<SendResult, { message: unknown }>['message'];
 type UploadedAttachment = Pick<Attachment, 'name' | 'type' | 'size'> & { uploadIntentId: string };
 type IndexedUploadedAttachment = UploadedAttachment & { index: number };
+type IndexedPendingAttachment = { index: number; uploadIntentId: string };
 type SendMessageInput = {
   html: string;
   files?: File[];
   scheduledAt?: Date;
   clientMutationId?: string;
   uploadedAttachments?: IndexedUploadedAttachment[];
+  pendingAttachments?: IndexedPendingAttachment[];
 };
 type CachedAttachment = Pick<Attachment, 'url' | 'name' | 'type' | 'size'> &
   Partial<Pick<Attachment, 'id' | 'messageId' | 'createdAt' | 'uploadIntentId'>> & {
@@ -64,6 +67,7 @@ export function useSendMessage({
   const actorId = currentUserId ?? currentUser?.id ?? 'anonymous';
   const timelineKey = messageQueryKeys.timeline(actorId, workspaceId, channelId);
   const threadKey = messageQueryKeys.thread(actorId, workspaceId, channelId, parentId ?? '');
+  const [uploadProgress, setUploadProgress] = useState<Record<number, number>>({});
 
   function updateMessageStatus(
     tempId: string,
@@ -124,6 +128,26 @@ export function useSendMessage({
     );
   }
 
+  function storePendingAttachment(clientMutationId: string, index: number, uploadIntentId: string) {
+    const update = (message: CachedMessage): CachedMessage =>
+      message.clientMutationId !== clientMutationId
+        ? message
+        : {
+            ...message,
+            attachments: message.attachments.map((current, currentIndex) =>
+              currentIndex === index ? { ...current, uploadIntentId, isUploaded: false } : current,
+            ),
+          };
+
+    if (parentId) {
+      queryClient.setQueryData<CachedMessage[]>(threadKey, (old) => old?.map(update));
+      return;
+    }
+    queryClient.setQueryData<MessagePages>(timelineKey, (old) =>
+      old ? { ...old, pages: old.pages.map((page) => page.map(update)) } : old,
+    );
+  }
+
   const mutation = useMutation({
     mutationFn: async ({
       html,
@@ -131,8 +155,10 @@ export function useSendMessage({
       scheduledAt,
       clientMutationId,
       uploadedAttachments: previouslyUploaded = [],
+      pendingAttachments: previouslyPending = [],
     }: SendMessageInput) => {
       const uploadedByIndex = new Map(previouslyUploaded.map(({ index, ...attachment }) => [index, attachment]));
+      const pendingByIndex = new Map(previouslyPending.map(({ index, ...attachment }) => [index, attachment]));
       const attachments: UploadedAttachment[] = [];
 
       for (const [index, file] of files.entries()) {
@@ -144,22 +170,37 @@ export function useSendMessage({
           continue;
         }
 
-        const result = await createUploadIntent({ channelId, name: file.name, type: file.type, size: file.size });
-        if ('error' in result) throw new Error(result.error);
-        if (result.uploadIntentId) {
-          const { error } = await createClient()
-            .storage.from(result.storageBucket)
-            .uploadToSignedUrl(result.storagePath, result.token, file, { contentType: result.type });
-          if (error) throw new Error('File upload failed. Try again.');
-          const finalized = await finalizeUploadIntent(result.uploadIntentId);
-          if ('error' in finalized) throw new Error(finalized.error);
-          attachments.push(finalized);
-          if (clientMutationId) {
-            storeUploadedAttachment(clientMutationId, index, finalized);
+        const previousIntent = pendingByIndex.get(index);
+        let intent;
+        if (previousIntent) {
+          const finalized = await finalizeUploadIntent(previousIntent.uploadIntentId);
+          if (!('error' in finalized)) {
+            attachments.push(finalized);
+            if (clientMutationId) storeUploadedAttachment(clientMutationId, index, finalized);
+            continue;
           }
+          if (finalized.error !== 'Uploaded file is unavailable') throw new Error(finalized.error);
+          intent = await renewUploadIntent(previousIntent.uploadIntentId);
         } else {
-          throw new Error('File upload did not create an upload intent');
+          intent = await createUploadIntent({ channelId, name: file.name, type: file.type, size: file.size });
         }
+        if ('error' in intent) throw new Error(intent.error);
+        if (!intent.uploadIntentId) throw new Error('File upload did not create an upload intent');
+        if (clientMutationId) storePendingAttachment(clientMutationId, index, intent.uploadIntentId);
+        setUploadProgress((current) => ({ ...current, [index]: 0 }));
+        await uploadPrivateFile({
+          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          bucket: intent.storageBucket,
+          path: intent.storagePath,
+          token: intent.token,
+          uploadIntentId: intent.uploadIntentId,
+          file,
+          onProgress: (percentage) => setUploadProgress((current) => ({ ...current, [index]: percentage })),
+        });
+        const finalized = await finalizeUploadIntent(intent.uploadIntentId);
+        if ('error' in finalized) throw new Error(finalized.error);
+        attachments.push(finalized);
+        if (clientMutationId) storeUploadedAttachment(clientMutationId, index, finalized);
       }
 
       const formData = new FormData();
@@ -178,11 +219,13 @@ export function useSendMessage({
       scheduledAt,
       clientMutationId,
       uploadedAttachments: previouslyUploaded = [],
+      pendingAttachments: previouslyPending = [],
     }: SendMessageInput) => {
       await queryClient.cancelQueries({ queryKey: timelineKey });
       if (scheduledAt) return {};
 
       const uploadedByIndex = new Map(previouslyUploaded.map(({ index, ...attachment }) => [index, attachment]));
+      const pendingByIndex = new Map(previouslyPending.map(({ index, ...attachment }) => [index, attachment]));
 
       const newMessage = {
         id: `temp-${crypto.randomUUID()}`,
@@ -206,6 +249,7 @@ export function useSendMessage({
             size: uploaded?.size ?? file.size,
             fileObject: file,
             ...(uploaded ? { isUploaded: true } : {}),
+            ...(pendingByIndex.get(index) ? { uploadIntentId: pendingByIndex.get(index)?.uploadIntentId, isUploaded: false } : {}),
           };
         }),
         reactions: [],
@@ -299,6 +343,7 @@ export function useSendMessage({
       }
 
       if (result.scheduled) {
+        setUploadProgress({});
         toast.success('Message scheduled');
         await queryClient.invalidateQueries({
           queryKey: parentId
@@ -309,6 +354,7 @@ export function useSendMessage({
       }
 
       if (!context?.tempId) return;
+      setUploadProgress({});
       if (parentId) {
         queryClient.setQueryData<CachedMessage[]>(
           threadKey,
@@ -352,5 +398,6 @@ export function useSendMessage({
     ...mutation,
     mutate: (input: SendMessageInput) => mutation.mutate(withClientMutationId(input)),
     mutateAsync: (input: SendMessageInput) => mutation.mutateAsync(withClientMutationId(input)),
+    uploadProgress,
   };
 }
