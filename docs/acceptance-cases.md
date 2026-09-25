@@ -4,7 +4,7 @@
 
 ## Status, oracle and fixtures
 
-**649 concrete scenarios are catalogued; independent QA is PLANNED / NOT RUN.** They cover 107 executable F requirements; F48 is the historical umbrella mapped to detailed requirements, not a dummy executable feature. This is the baseline six cases per executable requirement (642), six additional send/retry cases under F17, and the new group-DM intent-retry case under F14. A small subset now has developer TDD evidence, identified under the relevant features below; that does not count as independent QA or mean every acceptance dimension ran. This catalogue is not a guarantee that every unknown defect is enumerated.
+**650 concrete scenarios are catalogued; independent QA is PLANNED / NOT RUN.** They cover 107 executable F requirements; F48 is the historical umbrella mapped to detailed requirements, not a dummy executable feature. This is the baseline six cases per executable requirement (642), six additional send/retry cases under F17, and additional group-DM intent-retry and forwarding destination-state cases under F14 and F22. A small subset now has developer TDD evidence, identified under the relevant features below; that does not count as independent QA or mean every acceptance dimension ran. This catalogue is not a guarantee that every unknown defect is enumerated.
 
 Every scenario has a stable ID `TC-Fnn-01…06`. When a scenario contains multiple outcomes or environments, split it into named assertions/data rows (`.a`, `.b`, etc.) with actual fixture/step/expected-result evidence. Six is an organizing convention, not a cap. Apply the universal cases below to **each operation** in a feature; feature-specific statements and the owning detailed spec supply its oracle. No "covered by happy path" shortcut for a different role, API, route or state.
 
@@ -289,7 +289,7 @@ Owner: W04, W11, W13. Required layers: I,C,E. State: **PLANNED / NOT RUN**. See 
 
 ### F22: Forwarding
 
-Owner: W12. Required layers: I,E. State: **PLANNED / NOT RUN**. See [phase mapping](delivery-traceability.md).
+Owner: W12. Required layers: I,E. State: **DEVELOPER-TESTED SLICE / INDEPENDENT QA NOT RUN**. See [phase mapping](delivery-traceability.md).
 
 - **TC-F22-01** — Permitted forward stores safe attribution and intended destination content.
 - **TC-F22-02** — Source access is checked even when the client already holds a preview.
@@ -297,6 +297,8 @@ Owner: W12. Required layers: I,E. State: **PLANNED / NOT RUN**. See [phase mappi
 - **TC-F22-04** — Private-source policy prevents forbidden copying into a broader audience.
 - **TC-F22-05** — Repeated submit and interrupted response cannot duplicate the forward.
 - **TC-F22-06** — Deleted or changed source before confirmation yields the specified safe result and preserves destination draft.
+- **TC-F22-07** — Destination-channel loading, empty, failure and retry states distinguish unavailable data from no eligible destinations and preserve cached choices on refresh failure.
+- Developer evidence: `src/components/forward-message-dialog.test.tsx` covers the bounded destination-channel query, loading and empty states, retry after an initial query failure, and keeping a cached destination selectable during a failed refresh. Forward authorization, archive/membership policy, idempotency, source changes and independent QA remain NOT RUN.
 
 ### F23: Message permalinks and jump
 

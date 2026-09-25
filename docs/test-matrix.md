@@ -2,7 +2,7 @@
 
 [Index](README.md) · [TDD policy](tdd.md) · [Features](features.md) · [Scenario catalogue](testing.md) · [Routes](routes.md) · [Mobile](mobile-responsive.md)
 
-The [expanded acceptance catalogue](acceptance-cases.md) adds at least six concrete scenarios for every executable requirement (642 baseline), six additional send/retry scenarios under F17, and the new seventh F14 creation-retry case (649 total), plus U01–U24 operation dimensions, route recipes and X01–X20 integrated scenarios. F48 is a child trace, not a dummy test. [Delivery traceability](delivery-traceability.md) maps these to P00–P14. This matrix retains first-test intent and layer ownership.
+The [expanded acceptance catalogue](acceptance-cases.md) adds at least six concrete scenarios for every executable requirement (642 baseline), six additional send/retry scenarios under F17, and additional F14 group-creation retry and F22 destination-state cases (650 total), plus U01–U24 operation dimensions, route recipes and X01–X20 integrated scenarios. F48 is a child trace, not a dummy test. [Delivery traceability](delivery-traceability.md) maps these to P00–P14. This matrix retains first-test intent and layer ownership.
 
 ## Status and use
 

@@ -38,7 +38,12 @@ export function ForwardMessageDialog({
   const open = messageId !== null;
   const [targetChannelId, setTargetChannelId] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const { data: channels = [] } = useQuery({
+  const {
+    data: channels,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ['member-channel-options', actorId, workspaceSlug],
     queryFn: () => getWorkspaceChannels(workspaceSlug),
     enabled: open,
@@ -70,17 +75,39 @@ export function ForwardMessageDialog({
           <DialogDescription>Select a channel you belong to.</DialogDescription>
         </DialogHeader>
         <Select value={targetChannelId} onValueChange={setTargetChannelId}>
-          <SelectTrigger aria-label="Destination channel">
+          <SelectTrigger aria-label="Destination channel" disabled={isLoading || !channels?.length}>
             <SelectValue placeholder="Choose a channel" />
           </SelectTrigger>
           <SelectContent>
-            {channels.map((channel) => (
+            {channels?.map((channel) => (
               <SelectItem key={channel.id} value={channel.id}>
                 #{channel.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {isLoading && (
+          <p role="status" aria-label="Loading destination channels" className="text-sm text-muted-foreground">
+            Loading channels…
+          </p>
+        )}
+        {isError && (
+          <div role="alert" className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+            <span>
+              {channels
+                ? 'Couldn’t refresh destination channels.'
+                : 'Couldn’t load destination channels.'}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => void refetch()}>
+              Try again
+            </Button>
+          </div>
+        )}
+        {!isLoading && !isError && channels?.length === 0 && (
+          <p role="status" className="text-sm text-muted-foreground">
+            No channels are available to forward this message to.
+          </p>
+        )}
         <DialogFooter>
           <Button
             onClick={handleSubmit}
