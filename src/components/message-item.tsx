@@ -559,7 +559,7 @@ export function MessageItem({
       {/* Avatar column */}
       <div className={`flex-shrink-0 ${compact ? 'w-7' : 'w-8'}`}>
         {showAvatar && (
-          <UserHoverCard userId={message.userId} workspaceId={workspaceId || message.channel?.workspaceId || ''} workspaceSlug={workspaceSlug}>
+          <UserHoverCard userId={message.userId} viewerId={currentUserId} workspaceId={workspaceId} workspaceSlug={workspaceSlug}>
             <button
               onClick={() => onProfileSelect?.(message.userId)}
               className="hover:opacity-80 transition-opacity"
@@ -579,7 +579,7 @@ export function MessageItem({
       <div className="flex-1 min-w-0">
         {showAvatar && (
           <div className="flex items-center gap-2">
-            <UserHoverCard userId={message.userId} workspaceId={workspaceId || message.channel?.workspaceId || ''} workspaceSlug={workspaceSlug}>
+            <UserHoverCard userId={message.userId} viewerId={currentUserId} workspaceId={workspaceId} workspaceSlug={workspaceSlug}>
               <button
                 onClick={() => onProfileSelect?.(message.userId)}
                 className="font-semibold text-sm hover:underline"
@@ -652,7 +652,8 @@ export function MessageItem({
                     return (
                       <UserHoverCard
                         userId={userId}
-                        workspaceId={workspaceId || message.channel?.workspaceId || ''}
+                        viewerId={currentUserId}
+                        workspaceId={workspaceId}
                         workspaceSlug={workspaceSlug}
                       >
                         <span

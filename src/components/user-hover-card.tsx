@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 
 interface UserHoverCardProps {
   userId: string;
+  viewerId?: string;
   workspaceId: string; // Needed to fetch role
   workspaceSlug?: string;
   children: React.ReactNode;
@@ -25,6 +26,7 @@ interface UserHoverCardProps {
 
 export function UserHoverCard({
   userId,
+  viewerId,
   workspaceId,
   workspaceSlug,
   children,
@@ -33,12 +35,12 @@ export function UserHoverCard({
   const [isOpen, setIsOpen] = useState(false);
 
   const { data: user, isLoading, isError, refetch } = useQuery({
-    queryKey: ['user-card', userId, workspaceId],
+    queryKey: ['user-card', userId, workspaceId, viewerId ?? null],
     queryFn: async () => {
       return await getUserDetailsForCard(userId, workspaceId);
     },
     staleTime: 1000 * 60 * 5, // 5 mins
-    enabled: isOpen,
+    enabled: isOpen && !!viewerId,
   });
 
   const handleMessage = async () => {

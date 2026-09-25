@@ -45,5 +45,6 @@ it('refreshes server-rendered profile surfaces after a successful profile edit',
 
   expect(fixture.updateProfile).toHaveBeenCalledOnce();
   expect(fixture.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user-profile', 'current'] });
+  expect(fixture.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user-card', 'current'] });
   expect(fixture.refresh).toHaveBeenCalledOnce();
 });

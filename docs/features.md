@@ -170,7 +170,7 @@ Day-one labels: **Core** is the minimum candidate, **Conditional** stays enabled
 
 | ID | Capability / current source coverage | Remaining acceptance criteria | Day one | Package |
 |---|---|---|---|---|
-| F36 | Profiles/edit profile: Present | Shared-workspace visibility, input/URL validation, avatar privacy, updates reflected in current session/cache | Conditional | W13 |
+| F36 | Profiles/edit profile: Present; profile and hover-card reads now require requester and target workspace membership, and caches are keyed by viewer/workspace/target | Input/URL validation, avatar privacy, live revocation while a profile is open, and independent QA | Conditional | W05, W13 |
 | F37 | Hide/unhide users: Partial | Consistent history/search/thread/notification semantics; explain hidden content; recoverable management UI; never treated as authorization | Later | W13 |
 | F38 | Online/away/offline presence: Partial fields/actions, no observed callers | Multi-device expiry, background-tab policy, privacy and no misleading persistent ONLINE default | Later | W06, W13 |
 | F39 | Search keyboard entry and navigation: Partial | Ctrl/Cmd+K, focus/escape behavior, list navigation without animation delay, editor shortcuts do not conflict | Conditional | W14, W16 |

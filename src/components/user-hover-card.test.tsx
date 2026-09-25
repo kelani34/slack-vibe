@@ -11,6 +11,7 @@ const fixture = vi.hoisted(() => ({
   getUserDetails: vi.fn(),
   getOrCreateDirectMessage: vi.fn(),
   queryCalls: [] as Array<{ enabled?: boolean }>,
+  queryKeys: [] as Array<readonly unknown[]>,
   loading: false,
   error: false,
   noUserData: false,
@@ -31,8 +32,9 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: fixture.push, refresh: fixture.refresh }),
 }));
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: (options: { enabled?: boolean }) => {
+  useQuery: (options: { enabled?: boolean; queryKey: readonly unknown[] }) => {
     fixture.queryCalls.push(options);
+    fixture.queryKeys.push(options.queryKey);
     return {
       data: fixture.noUserData ? undefined : fixture.user,
       isLoading: fixture.loading,
@@ -58,6 +60,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 beforeEach(() => {
   vi.clearAllMocks();
   fixture.queryCalls = [];
+  fixture.queryKeys = [];
   fixture.loading = false;
   fixture.error = false;
   fixture.noUserData = false;
@@ -67,7 +70,7 @@ beforeEach(() => {
 it('refreshes the workspace shell after starting a DM from a member card', async () => {
   const user = userEvent.setup();
   render(
-    <UserHoverCard userId="peer" workspaceId="workspace" workspaceSlug="acme">
+    <UserHoverCard userId="peer" viewerId="viewer" workspaceId="workspace" workspaceSlug="acme">
       <button type="button">Open member card</button>
     </UserHoverCard>,
   );
@@ -82,7 +85,7 @@ it('refreshes the workspace shell after starting a DM from a member card', async
 it('loads member details only when the hover card opens', async () => {
   const user = userEvent.setup();
   render(
-    <UserHoverCard userId="peer" workspaceId="workspace" workspaceSlug="acme">
+    <UserHoverCard userId="peer" viewerId="viewer" workspaceId="workspace" workspaceSlug="acme">
       <button type="button">Open member card</button>
     </UserHoverCard>,
   );
@@ -92,11 +95,37 @@ it('loads member details only when the hover card opens', async () => {
   expect(fixture.queryCalls.at(-1)?.enabled).toBe(true);
 });
 
+it('scopes member-card cache to the viewer, workspace, and target member', async () => {
+  const user = userEvent.setup();
+  render(
+    <UserHoverCard userId="peer" viewerId="viewer" workspaceId="workspace" workspaceSlug="acme">
+      <button type="button">Open member card</button>
+    </UserHoverCard>,
+  );
+
+  await user.hover(screen.getByRole('button', { name: 'Open member card' }));
+
+  expect(fixture.queryKeys).toContainEqual(['user-card', 'peer', 'workspace', 'viewer']);
+});
+
+it('does not load private member details without a known viewer identity', async () => {
+  const user = userEvent.setup();
+  render(
+    <UserHoverCard userId="peer" workspaceId="workspace" workspaceSlug="acme">
+      <button type="button">Open member card</button>
+    </UserHoverCard>,
+  );
+
+  await user.hover(screen.getByRole('button', { name: 'Open member card' }));
+
+  expect(fixture.queryCalls.at(-1)?.enabled).toBe(false);
+});
+
 it('announces member-detail loading with reduced-motion-aware skeletons', async () => {
   fixture.loading = true;
   const user = userEvent.setup();
   const { container } = render(
-    <UserHoverCard userId="peer" workspaceId="workspace" workspaceSlug="acme">
+    <UserHoverCard userId="peer" viewerId="viewer" workspaceId="workspace" workspaceSlug="acme">
       <button type="button">Open member card</button>
     </UserHoverCard>,
   );
@@ -113,7 +142,7 @@ it('offers a retry when member details fail to load', async () => {
   fixture.noUserData = true;
   const user = userEvent.setup();
   render(
-    <UserHoverCard userId="peer" workspaceId="workspace" workspaceSlug="acme">
+    <UserHoverCard userId="peer" viewerId="viewer" workspaceId="workspace" workspaceSlug="acme">
       <button type="button">Open member card</button>
     </UserHoverCard>,
   );
@@ -128,7 +157,7 @@ it('keeps cached member details visible when refresh fails', async () => {
   fixture.error = true;
   const user = userEvent.setup();
   render(
-    <UserHoverCard userId="peer" workspaceId="workspace" workspaceSlug="acme">
+    <UserHoverCard userId="peer" viewerId="viewer" workspaceId="workspace" workspaceSlug="acme">
       <button type="button">Open member card</button>
     </UserHoverCard>,
   );

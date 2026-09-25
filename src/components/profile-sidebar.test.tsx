@@ -74,7 +74,7 @@ it('scopes cached member profiles to the workspace that authorized the read', ()
     />,
   );
 
-  expect(fixture.profileQueryKey).toEqual(['user-profile', 'peer', 'workspace-1']);
+  expect(fixture.profileQueryKey).toEqual(['user-profile', 'peer', 'workspace-1', 'current']);
 });
 
 it('offers a retry when the profile request fails without implying the user is missing', async () => {
