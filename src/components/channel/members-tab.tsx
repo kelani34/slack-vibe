@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { UserPlus, Search, UserMinus, AlertCircle } from 'lucide-react';
+import { UserPlus, Search, UserMinus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -64,7 +64,7 @@ export function MembersTab({
       m.user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.user.email?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const role = (m.user as any).role || 'MEMBER';
+    const role = m.user.role || 'MEMBER';
     const matchesRole =
       roleFilter === 'ALL'
         ? true

@@ -43,11 +43,43 @@ import { useState, useEffect, useRef } from 'react';
 import { FilePreviewModal } from '@/components/file-preview-modal';
 import { useSendMessage } from '@/hooks/use-send-message';
 import parse, { domToReact, type Element } from 'html-react-parser';
+import Image from 'next/image';
+import type { Attachment, Message, Reaction, User } from '@prisma/client';
+import type { InfiniteData } from '@tanstack/react-query';
 
 import { UserHoverCard } from '@/components/user-hover-card';
+import { messageHtmlToText, sanitizeMessageHtml } from '@/lib/message-html';
+
+type MessageAttachment = Pick<Attachment, 'url' | 'name' | 'type' | 'size'> &
+  Partial<Pick<Attachment, 'id' | 'messageId' | 'createdAt'>> & {
+    fileObject?: File;
+    isUploaded?: boolean;
+  };
+type MessageReaction = Pick<Reaction, 'id' | 'messageId' | 'emoji' | 'userId' | 'createdAt'>;
+type ReplyAuthor = Pick<User, 'id' | 'name' | 'avatarUrl'>;
+type MessageItemData = Pick<
+  Message,
+  'id' | 'content' | 'channelId' | 'userId' | 'parentId' | 'type' | 'createdAt' | 'updatedAt' | 'isPinned' | 'isDeleted' | 'isEdited'
+> & {
+  clientMutationId?: string | null;
+  scheduledAt?: Date | null;
+  isPending?: boolean;
+  isError?: boolean;
+  user?: ReplyAuthor | null;
+  channel?: { workspaceId: string } | null;
+  attachments?: MessageAttachment[];
+  reactions?: MessageReaction[];
+  replies?: Array<{
+    content: string;
+    createdAt: Date;
+    user: ReplyAuthor;
+  }>;
+  _count?: { replies: number };
+};
+type MessagePages = InfiniteData<MessageItemData[], string | undefined>;
 
 interface MessageItemProps {
-  message: any;
+  message: MessageItemData;
   showAvatar?: boolean;
   onThreadSelect?: (messageId: string) => void;
   onProfileSelect?: (userId: string) => void;
@@ -82,8 +114,8 @@ export function MessageItem({
 
   const queryClient = useQueryClient();
   const pathname = usePathname();
+  const workspaceSlug = pathname?.split('/').filter(Boolean)[0] || undefined;
   const [bookmarked, setBookmarked] = useState(isBookmarked);
-  const [showHighlight, setShowHighlight] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [previewFile, setPreviewFile] = useState<{
     url: string;
@@ -103,33 +135,47 @@ export function MessageItem({
   });
 
   const handleRetry = () => {
-    const files =
-      message.attachments
-        ?.map((a: any) => a.fileObject)
-        .filter((f: any) => f instanceof File) || [];
+    const attachments = message.attachments ?? [];
+    const files = attachments.flatMap((attachment) =>
+      attachment.fileObject instanceof File ? [attachment.fileObject] : [],
+    );
+    const uploadedAttachments = attachments.flatMap((attachment, index) =>
+      attachment.fileObject instanceof File && attachment.isUploaded
+        ? [{
+            index,
+            url: attachment.url,
+            name: attachment.name,
+            type: attachment.type,
+            size: attachment.size,
+          }]
+        : [],
+    );
 
-    retrySendMessage({ html: message.content, files });
+    retrySendMessage({
+      html: message.content,
+      files,
+      clientMutationId: message.clientMutationId ?? undefined,
+      uploadedAttachments,
+    });
 
     // Remove the failed message from cache
-    const qKey = message.parentId
-      ? ['messages', message.channelId, message.parentId]
-      : ['messages', message.channelId];
-
-    queryClient.setQueryData(qKey, (old: any) => {
-      if (!old) return old;
-      if (Array.isArray(old)) {
-        return old.filter((m: any) => m.id !== message.id);
-      }
-      if (old.pages) {
-        return {
-          ...old,
-          pages: old.pages.map((p: any[]) =>
-            p.filter((m: any) => m.id !== message.id)
-          ),
-        };
-      }
-      return old;
-    });
+    if (message.parentId) {
+      queryClient.setQueryData<MessageItemData[]>(
+        ['messages', message.channelId, message.parentId],
+        (old) => old?.filter((cachedMessage) => cachedMessage.id !== message.id),
+      );
+    } else {
+      queryClient.setQueryData<MessagePages>(['messages', message.channelId], (old) =>
+        old
+          ? {
+              ...old,
+              pages: old.pages.map((page) =>
+                page.filter((cachedMessage) => cachedMessage.id !== message.id),
+              ),
+            }
+          : old,
+      );
+    }
 
     toast.info('Retrying...');
   };
@@ -139,24 +185,21 @@ export function MessageItem({
   // Handle highlight animation
   useEffect(() => {
     if (isHighlighted) {
-      setShowHighlight(true);
       messageRef.current?.scrollIntoView({
         behavior: 'smooth',
         block: 'center',
       });
-      const timer = setTimeout(() => setShowHighlight(false), 1000);
-      return () => clearTimeout(timer);
     }
   }, [isHighlighted]);
 
   // Get unique reply authors for avatar preview
   const replyAuthors =
     message.replies
-      ?.reduce((acc: any[], reply: any) => {
-        if (!acc.find((a) => a.id === reply.user.id)) {
-          acc.push(reply.user);
+      ?.reduce<ReplyAuthor[]>((authors, reply) => {
+        if (!authors.some((author) => author.id === reply.user.id)) {
+          authors.push(reply.user);
         }
-        return acc;
+        return authors;
       }, [])
       .slice(0, 3) || [];
 
@@ -232,32 +275,21 @@ export function MessageItem({
   };
 
   const handleCopyText = async () => {
-    // Strip HTML and copy plain text
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = message.content;
-    const text = tempDiv.textContent || tempDiv.innerText || '';
-    await navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(messageHtmlToText(message.content));
     toast.success('Message copied');
   };
 
   const handleForward = () => {
-    if (isArchived) return;
-    if (onForward) {
-      onForward(message.id);
-    } else {
-      toast.info('Forward feature coming soon');
-    }
+    if (isArchived || !onForward) return;
+    onForward(message.id);
   };
 
   // Group reactions by emoji
   const reactionGroups =
-    message.reactions?.reduce((acc: Record<string, any[]>, reaction: any) => {
-      if (!acc[reaction.emoji]) {
-        acc[reaction.emoji] = [];
-      }
-      acc[reaction.emoji].push(reaction);
-      return acc;
-    }, {}) || {};
+    message.reactions?.reduce<Record<string, MessageReaction[]>>((groups, reaction) => {
+      (groups[reaction.emoji] ??= []).push(reaction);
+      return groups;
+    }, {}) ?? {};
 
   // Handle SYSTEM messages
   if (message.type === 'SYSTEM') {
@@ -265,7 +297,7 @@ export function MessageItem({
       <div
         className={`flex items-center gap-3 px-2 py-1 rounded-lg ${
           compact ? 'mt-0.5' : 'mt-2'
-        } ${bookmarked ? 'bg-blue-50 dark:bg-blue-950/20' : ''}`}
+      } ${bookmarked ? 'bg-saved-surface' : ''}`}
       >
         <div className={`flex-shrink-0 ${compact ? 'w-7' : 'w-8'}`}>
           {/* Placeholder for alignment or small icon if desired, otherwise just empty or specific system icon */}
@@ -277,7 +309,7 @@ export function MessageItem({
           </Avatar>
           <div className="flex items-center gap-1">
             <span className="font-medium">{message.user?.name}</span>
-            <span dangerouslySetInnerHTML={{ __html: message.content }} />
+            <span>{parse(sanitizeMessageHtml(message.content))}</span>
             <span className="text-[10px] opacity-70 ml-1">
               {format(new Date(message.createdAt), 'h:mm a')}
             </span>
@@ -295,24 +327,27 @@ export function MessageItem({
         showAvatar ? 'mt-3' : 'mt-0.5'
       } ${
         message.isPinned
-          ? 'bg-amber-50/50 dark:bg-amber-950/10'
+          ? 'bg-pinned-surface'
           : bookmarked
-          ? 'bg-blue-50 dark:bg-blue-950/20'
+          ? 'bg-saved-surface'
           : ''
-      } ${
-        showHighlight ? 'bg-orange-100 dark:bg-orange-900/30 animate-pulse' : ''
-      }`}
+      } ${isHighlighted ? 'message-highlight' : ''}`}
     >
-      {/* Floating action bar on hover */}
+      {/* Floating action bar */}
       {!message.isPending && (
-        <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <div className="flex items-center gap-0.5 bg-background border rounded-md shadow-sm p-0.5">
+        <div
+          role="toolbar"
+          aria-label="Message actions"
+          className="absolute -top-3 right-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 max-md:top-0 max-md:opacity-100"
+        >
+          <div className="flex items-center gap-0.5 rounded-md border bg-background p-0.5 shadow-sm max-md:border-transparent max-md:bg-transparent max-md:p-0 max-md:shadow-none">
             {onThreadSelect && !compact && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 max-md:hidden"
                 onClick={() => onThreadSelect(message.id)}
+                aria-label="Reply in thread"
                 title="Reply in thread"
               >
                 <MessageSquare className="h-4 w-4" />
@@ -326,7 +361,8 @@ export function MessageItem({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-7 w-7 max-md:hidden"
+                      aria-label="Add reaction"
                       title="Add reaction"
                     >
                       <Smile className="h-4 w-4" />
@@ -336,12 +372,13 @@ export function MessageItem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 max-md:hidden"
                   onClick={handleBookmark}
+                  aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark message'}
                   title={bookmarked ? 'Remove bookmark' : 'Bookmark message'}
                 >
                   {bookmarked ? (
-                    <BookmarkCheck className="h-4 w-4 text-blue-500" />
+                    <BookmarkCheck className="h-4 w-4 text-saved" />
                   ) : (
                     <Bookmark className="h-4 w-4" />
                   )}
@@ -349,14 +386,17 @@ export function MessageItem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 max-md:hidden"
                   onClick={handlePin}
+                  aria-label={
+                    message.isPinned ? 'Unpin from channel' : 'Pin to channel'
+                  }
                   title={
                     message.isPinned ? 'Unpin from channel' : 'Pin to channel'
                   }
                 >
                   {message.isPinned ? (
-                    <PinOff className="h-4 w-4 text-orange-500" />
+                    <PinOff className="h-4 w-4 text-pinned" />
                   ) : (
                     <Pin className="h-4 w-4" />
                   )}
@@ -364,9 +404,11 @@ export function MessageItem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 max-md:hidden"
                   onClick={handleForward}
-                  title="Forward message"
+                  disabled={!onForward || isArchived}
+                  aria-label={onForward ? 'Forward message' : 'Forwarding unavailable in this view'}
+                  title={onForward ? 'Forward message' : 'Forwarding unavailable in this view'}
                 >
                   <Forward className="h-4 w-4" />
                 </Button>
@@ -377,13 +419,66 @@ export function MessageItem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-11 w-11 md:h-7 md:w-7"
+                  aria-label="More actions"
                   title="More actions"
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                {!isArchived && (
+                  <EmojiPicker
+                    onSelect={handleReaction}
+                    trigger={
+                      <DropdownMenuItem
+                        className="md:hidden"
+                        onSelect={(event) => event.preventDefault()}
+                      >
+                        <Smile className="h-4 w-4 mr-2" />
+                        Add reaction
+                      </DropdownMenuItem>
+                    }
+                  />
+                )}
+                {onThreadSelect && !compact && (
+                  <DropdownMenuItem
+                    className="md:hidden"
+                    onClick={() => onThreadSelect(message.id)}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Reply in thread
+                  </DropdownMenuItem>
+                )}
+                {!isArchived && (
+                  <>
+                    <DropdownMenuItem className="md:hidden" onClick={handleBookmark}>
+                      {bookmarked ? (
+                        <BookmarkCheck className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Bookmark className="h-4 w-4 mr-2" />
+                      )}
+                      {bookmarked ? 'Remove bookmark' : 'Bookmark message'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="md:hidden" onClick={handlePin}>
+                      {message.isPinned ? (
+                        <PinOff className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Pin className="h-4 w-4 mr-2" />
+                      )}
+                      {message.isPinned ? 'Unpin from channel' : 'Pin to channel'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="md:hidden"
+                      onClick={handleForward}
+                      disabled={!onForward}
+                    >
+                      <Forward className="h-4 w-4 mr-2" />
+                      {onForward ? 'Forward message' : 'Forwarding unavailable'}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="md:hidden" />
+                  </>
+                )}
                 <DropdownMenuItem onClick={handleCopyLink}>
                   <Link2 className="h-4 w-4 mr-2" />
                   Copy link
@@ -399,7 +494,7 @@ export function MessageItem({
                   !isArchived && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleBookmark}>
+                      <DropdownMenuItem className="max-md:hidden" onClick={handleBookmark}>
                         {bookmarked ? (
                           <>
                             <BookmarkCheck className="h-4 w-4 mr-2" />
@@ -451,7 +546,7 @@ export function MessageItem({
       {/* Avatar column */}
       <div className={`flex-shrink-0 ${compact ? 'w-7' : 'w-8'}`}>
         {showAvatar && (
-          <UserHoverCard userId={message.userId} workspaceId={workspaceId || message.channel?.workspaceId || ''}>
+          <UserHoverCard userId={message.userId} workspaceId={workspaceId || message.channel?.workspaceId || ''} workspaceSlug={workspaceSlug}>
             <button
               onClick={() => onProfileSelect?.(message.userId)}
               className="hover:opacity-80 transition-opacity"
@@ -471,7 +566,7 @@ export function MessageItem({
       <div className="flex-1 min-w-0">
         {showAvatar && (
           <div className="flex items-center gap-2">
-            <UserHoverCard userId={message.userId} workspaceId={workspaceId || message.channel?.workspaceId || ''}>
+            <UserHoverCard userId={message.userId} workspaceId={workspaceId || message.channel?.workspaceId || ''} workspaceSlug={workspaceSlug}>
               <button
                 onClick={() => onProfileSelect?.(message.userId)}
                 className="font-semibold text-sm hover:underline"
@@ -484,7 +579,7 @@ export function MessageItem({
             </span>
             {message.isPinned && (
               <span
-                className="text-xs text-orange-500 flex items-center gap-0.5"
+                className="text-xs text-pinned flex items-center gap-0.5"
                 title="Pinned"
               >
                 <Pin className="h-3 w-3" />
@@ -497,7 +592,7 @@ export function MessageItem({
         {isEditing ? (
           <div className="space-y-2">
             <RichTextEditor
-              initialContent={message.content}
+              initialContent={sanitizeMessageHtml(message.content)}
               variant="edit"
               onCancel={() => setIsEditing(false)}
               onSubmit={async (html) => {
@@ -521,7 +616,7 @@ export function MessageItem({
                 message.isPending ? 'opacity-70' : ''
               } ${message.isError ? 'text-destructive' : ''}`}
             >
-              {parse(message.content || '', {
+              {parse(sanitizeMessageHtml(message.content || ''), {
                 replace: (domNode) => {
                   if (
                     domNode.type === 'tag' &&
@@ -538,12 +633,14 @@ export function MessageItem({
                       ? `${className} mention-me` 
                       : className;
 
-                    const { class: _, ...restAttribs } = domNode.attribs;
+                    const restAttribs = { ...domNode.attribs };
+                    delete restAttribs.class;
 
                     return (
                       <UserHoverCard
                         userId={userId}
                         workspaceId={workspaceId || message.channel?.workspaceId || ''}
+                        workspaceSlug={workspaceSlug}
                       >
                         <span
                           {...restAttribs}
@@ -553,7 +650,7 @@ export function MessageItem({
                             if (userId) onProfileSelect?.(userId);
                           }}
                         >
-                          {domToReact((domNode as Element).children as any)}
+                          {domToReact((domNode as Element).children as Parameters<typeof domToReact>[0])}
                         </span>
                       </UserHoverCard>
                     );
@@ -585,9 +682,9 @@ export function MessageItem({
               compact ? 'grid-cols-2' : 'grid-cols-3'
             }`}
           >
-            {message.attachments.map((att: any) => (
+            {message.attachments.map((att) => (
               <div
-                key={att.id}
+                key={att.id ?? att.url}
                 className="block border rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer group/attachment"
                 onClick={() =>
                   setPreviewFile({
@@ -598,9 +695,12 @@ export function MessageItem({
                 }
               >
                 {att.type.startsWith('image/') ? (
-                  <img
+                  <Image
                     src={att.url}
                     alt={att.name}
+                    width={640}
+                    height={360}
+                    unoptimized
                     className={`w-full object-cover bg-muted ${
                       compact ? 'h-16' : 'h-32'
                     }`}
@@ -635,7 +735,7 @@ export function MessageItem({
               >
                 <span>{emoji}</span>
                 <span className="text-muted-foreground">
-                  {(reactions as any[]).length}
+                  {reactions.length}
                 </span>
               </button>
             ))}
@@ -643,13 +743,13 @@ export function MessageItem({
         )}
 
         {/* Thread indicator */}
-        {showThreadIndicator && message._count?.replies > 0 && (
+        {showThreadIndicator && (message._count?.replies ?? 0) > 0 && (
           <button
             onClick={() => onThreadSelect?.(message.id)}
-            className="mt-2 flex items-center gap-2 text-xs text-blue-500 hover:underline"
+            className="mt-2 flex items-center gap-2 text-xs text-primary hover:underline"
           >
             <div className="flex -space-x-2">
-              {replyAuthors.map((author: any) => (
+              {replyAuthors.map((author) => (
                 <Avatar
                   key={author.id}
                   className="h-5 w-5 border-2 border-background"
@@ -662,8 +762,8 @@ export function MessageItem({
               ))}
             </div>
             <span>
-              {message._count.replies}{' '}
-              {message._count.replies === 1 ? 'reply' : 'replies'}
+              {message._count?.replies}{' '}
+              {message._count?.replies === 1 ? 'reply' : 'replies'}
             </span>
             {lastReply && (
               <span className="text-muted-foreground">

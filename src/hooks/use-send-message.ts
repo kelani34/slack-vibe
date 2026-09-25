@@ -1,7 +1,43 @@
 import { sendMessage } from '@/actions/message';
 import { uploadFile } from '@/actions/upload';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import type { Attachment, Reaction } from '@prisma/client';
+
+type SendResult = Awaited<ReturnType<typeof sendMessage>>;
+type SentMessage = Extract<SendResult, { message: unknown }>['message'];
+type UploadedAttachment = Pick<Attachment, 'url' | 'name' | 'type' | 'size'>;
+type IndexedUploadedAttachment = UploadedAttachment & { index: number };
+type SendMessageInput = {
+  html: string;
+  files?: File[];
+  scheduledAt?: Date;
+  clientMutationId?: string;
+  uploadedAttachments?: IndexedUploadedAttachment[];
+};
+type CachedAttachment = Pick<Attachment, 'url' | 'name' | 'type' | 'size'> &
+  Partial<Pick<Attachment, 'id' | 'messageId' | 'createdAt'>> & {
+    fileObject?: File;
+    isUploaded?: boolean;
+  };
+type CachedMessage = Omit<SentMessage, 'attachments' | 'user'> & {
+  attachments: CachedAttachment[];
+  user: Pick<SentMessage['user'], 'id' | 'name' | 'avatarUrl' | 'image'>;
+  reactions?: Pick<Reaction, 'id' | 'messageId' | 'emoji' | 'userId' | 'createdAt'>[];
+  replies?: Array<{ content: string; createdAt: Date; user: { id: string; name: string | null; avatarUrl: string | null } }>;
+  _count?: { replies: number };
+  isPending?: boolean;
+  isError?: boolean;
+};
+type MessagePages = InfiniteData<CachedMessage[], string | undefined>;
+
+function withMessageStatus(
+  message: CachedMessage,
+  id: string,
+  status: Pick<CachedMessage, 'isPending' | 'isError'>,
+): CachedMessage {
+  return message.id === id ? { ...message, ...status } : message;
+}
 
 interface UseSendMessageProps {
   channelId: string;
@@ -20,78 +56,148 @@ export function useSendMessage({
 }: UseSendMessageProps) {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  function updateMessageStatus(
+    tempId: string,
+    status: Pick<CachedMessage, 'isPending' | 'isError'>,
+  ) {
+    if (parentId) {
+      queryClient.setQueryData<CachedMessage[]>(
+        ['messages', channelId, parentId],
+        (old) => old?.map((message) => withMessageStatus(message, tempId, status)),
+      );
+      return;
+    }
+
+    queryClient.setQueryData<MessagePages>(['messages', channelId], (old) =>
+      old
+        ? {
+            ...old,
+            pages: old.pages.map((page) =>
+              page.map((message) => withMessageStatus(message, tempId, status)),
+            ),
+          }
+        : old,
+    );
+  }
+
+  function storeUploadedAttachment(
+    clientMutationId: string,
+    index: number,
+    attachment: UploadedAttachment,
+  ) {
+    const update = (message: CachedMessage): CachedMessage =>
+      message.clientMutationId !== clientMutationId
+        ? message
+        : {
+            ...message,
+            attachments: message.attachments.map((current, currentIndex) =>
+              currentIndex === index
+                ? { ...current, ...attachment, isUploaded: true }
+                : current,
+            ),
+          };
+
+    if (parentId) {
+      queryClient.setQueryData<CachedMessage[]>(
+        ['messages', channelId, parentId],
+        (old) => old?.map(update),
+      );
+      return;
+    }
+
+    queryClient.setQueryData<MessagePages>(['messages', channelId], (old) =>
+      old
+        ? {
+            ...old,
+            pages: old.pages.map((page) => page.map(update)),
+          }
+        : old,
+    );
+  }
+
+  const mutation = useMutation({
     mutationFn: async ({
       html,
       files = [],
       scheduledAt,
-    }: {
-      html: string;
-      files?: File[];
-      scheduledAt?: Date;
-    }) => {
-      // 1. Upload files first
-      const uploadedAttachments: any[] = [];
+      clientMutationId,
+      uploadedAttachments: previouslyUploaded = [],
+    }: SendMessageInput) => {
+      const uploadedByIndex = new Map(previouslyUploaded.map(({ index, ...attachment }) => [index, attachment]));
+      const attachments: UploadedAttachment[] = [];
 
-      if (files.length > 0) {
-        // Upload sequentially
-        for (const file of files) {
-          const formData = new FormData();
-          formData.append('file', file);
-          const result = await uploadFile(formData);
-          if (result.error) throw new Error(result.error);
-          if (result.url) {
-            uploadedAttachments.push({
-              url: result.url,
-              name: result.name,
-              type: result.type,
-              size: result.size,
-            });
+      for (const [index, file] of files.entries()) {
+        const cachedAttachment = uploadedByIndex.get(index);
+        if (cachedAttachment) {
+          attachments.push(cachedAttachment);
+          continue;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('channelId', channelId);
+        const result = await uploadFile(formData);
+        if (result.error) throw new Error(result.error);
+        if (result.url) {
+          const attachment = {
+            url: result.url,
+            name: result.name,
+            type: result.type,
+            size: result.size,
+          };
+          attachments.push(attachment);
+          if (clientMutationId) {
+            storeUploadedAttachment(clientMutationId, index, attachment);
           }
         }
       }
 
-      // 2. Send message with real URLs
       const formData = new FormData();
       formData.append('channelId', channelId);
       formData.append('content', html);
-      formData.append('attachments', JSON.stringify(uploadedAttachments));
+      formData.append('attachments', JSON.stringify(attachments));
       if (parentId) formData.append('parentId', parentId);
-      if (scheduledAt)
-        formData.append('scheduledAt', scheduledAt.toISOString());
+      if (scheduledAt) formData.append('scheduledAt', scheduledAt.toISOString());
+      if (clientMutationId) formData.append('clientMutationId', clientMutationId);
 
-      return await sendMessage(formData);
+      return sendMessage(formData);
     },
-    onMutate: async ({ html, files = [], scheduledAt }) => {
-      // Cancel outgoing refetches
+    onMutate: async ({
+      html,
+      files = [],
+      scheduledAt,
+      clientMutationId,
+      uploadedAttachments: previouslyUploaded = [],
+    }: SendMessageInput) => {
       await queryClient.cancelQueries({ queryKey: ['messages', channelId] });
+      if (scheduledAt) return {};
 
-      const previousMessages = queryClient.getQueryData([
-        'messages',
-        channelId,
-      ]);
+      const uploadedByIndex = new Map(previouslyUploaded.map(({ index, ...attachment }) => [index, attachment]));
 
-      // Don't optimistically update scheduled messages
-      if (scheduledAt) return { previousMessages };
-
-      // Create optimistic attachments from local files
-      const optimisticAttachments = files.map((file) => ({
-        url: URL.createObjectURL(file), // Use blob URL for immediate preview
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        fileObject: file, // Store file object for retry
-      }));
-
-      const tempId = `temp-${Date.now()}`;
       const newMessage = {
-        id: tempId,
+        id: `temp-${crypto.randomUUID()}`,
+        clientMutationId: clientMutationId ?? null,
         content: html,
         channelId,
         userId: currentUser?.id || 'unknown',
+        parentId: parentId || null,
+        scheduledAt: null,
+        isPinned: false,
+        isDeleted: false,
+        isEdited: false,
         createdAt: new Date(),
         updatedAt: new Date(),
-        attachments: optimisticAttachments,
+        attachments: files.map((file, index) => {
+          const uploaded = uploadedByIndex.get(index);
+          return {
+            url: uploaded?.url ?? URL.createObjectURL(file),
+            name: uploaded?.name ?? file.name,
+            type: uploaded?.type ?? file.type,
+            size: uploaded?.size ?? file.size,
+            fileObject: file,
+            ...(uploaded ? { isUploaded: true } : {}),
+          };
+        }),
         reactions: [],
         replies: [],
         _count: { replies: 0 },
@@ -99,179 +205,115 @@ export function useSendMessage({
           id: currentUser?.id || 'unknown',
           name: currentUser?.name || 'You',
           avatarUrl: currentUser?.image || null,
+          image: currentUser?.image || null,
         },
-        items: [],
-        type: 'REGULAR',
+        type: 'REGULAR' as const,
         isPending: true,
       };
 
-      // Add to main channel
       if (!parentId) {
-        queryClient.setQueryData(['messages', channelId], (old: any) => {
-          if (!old || !old.pages) return old;
-          const newPages = [...old.pages];
-          if (newPages.length > 0) {
-            newPages[0] = [...newPages[0], newMessage];
-          }
-          return { ...old, pages: newPages };
-        });
-      } else {
-        // Add to thread
-        queryClient.setQueryData(
-          ['messages', channelId, parentId],
-          (old: any) => {
-            if (!old) return [newMessage];
-            return [...old, newMessage];
-          }
+        queryClient.setQueryData<MessagePages>(['messages', channelId], (old) =>
+          old?.pages.length
+            ? { ...old, pages: [[...old.pages[0], newMessage], ...old.pages.slice(1)] }
+            : old,
         );
-
-        // Update reply count in main channel
-        queryClient.setQueryData(['messages', channelId], (old: any) => {
-          if (!old || !old.pages) return old;
-          const newPages = old.pages.map((page: any[]) =>
-            page.map((msg: any) => {
-              if (msg.id === parentId) {
-                return {
-                  ...msg,
-                  _count: {
-                    ...msg._count,
-                    replies: (msg._count?.replies || 0) + 1,
-                  },
-                };
-              }
-              return msg;
-            })
-          );
-          return { ...old, pages: newPages };
-        });
-      }
-
-      return { previousMessages, tempId };
-    },
-    onError: (err, variables, context: any) => {
-      // Don't revert completely, just mark as error
-      // Find the optimistic message and set isError: true
-      const { tempId } = context;
-      if (!tempId) return;
-
-      toast.error('Failed to send message');
-
-      const updateMessageAsError = (old: any) => {
-        if (!old) return old;
-        // Handle paginated list
-        if (old.pages) {
-          const newPages = old.pages.map((page: any[]) =>
-            page.map((msg) =>
-              msg.id === tempId
-                ? { ...msg, isPending: false, isError: true }
-                : msg
-            )
-          );
-          return { ...old, pages: newPages };
-        }
-        // Handle flat list (thread)
-        if (Array.isArray(old)) {
-          return old.map((msg) =>
-            msg.id === tempId
-              ? { ...msg, isPending: false, isError: true }
-              : msg
-          );
-        }
-        return old;
-      };
-
-      if (!parentId) {
-        queryClient.setQueryData(['messages', channelId], updateMessageAsError);
       } else {
-        queryClient.setQueryData(
+        queryClient.setQueryData<CachedMessage[]>(
           ['messages', channelId, parentId],
-          updateMessageAsError
+          (old) => [...(old || []), newMessage],
         );
-      }
-      console.error(err);
-    },
-    onSuccess: (result, variables, context) => {
-      if (result.error) {
-        toast.error(result.error);
-        // Mark as error if backend returned error
-        // Reuse the onError logic or manually update
-        // Ideally onError callback handles threw errors.
-        // If sendMessage returns { error: ... }, it doesn't throw.
-        // I should throw in mutationFn if result.error?
-        // In mutationFn: return await sendMessage(...)
-        // I should change logic to check result.error and throw?
-        // Or handle here.
-
-        // If I don't throw, onError is not called.
-        // So I must handle it here.
-
-        const { tempId } = context || {};
-        if (tempId) {
-          const updateMessageAsError = (old: any) => {
-            if (!old) return old;
-            if (old.pages) {
-              return {
+        queryClient.setQueryData<MessagePages>(['messages', channelId], (old) =>
+          old
+            ? {
                 ...old,
-                pages: old.pages.map((p: any[]) =>
-                  p.map((m: any) =>
-                    m.id === tempId
-                      ? { ...m, isPending: false, isError: true }
-                      : m
-                  )
+                pages: old.pages.map((page) =>
+                  page.map((message) =>
+                    message.id === parentId
+                      ? {
+                          ...message,
+                          _count: {
+                            ...message._count,
+                            replies: (message._count?.replies ?? 0) + 1,
+                          },
+                        }
+                      : message,
+                  ),
                 ),
-              };
-            }
-            if (Array.isArray(old)) {
-              return old.map((m: any) =>
-                m.id === tempId ? { ...m, isPending: false, isError: true } : m
-              );
-            }
-            return old;
-          };
-          if (!parentId)
-            queryClient.setQueryData(
-              ['messages', channelId],
-              updateMessageAsError
-            );
-          else
-            queryClient.setQueryData(
-              ['messages', channelId, parentId],
-              updateMessageAsError
-            );
-        }
+              }
+            : old,
+        );
+      }
 
+      return { tempId: newMessage.id };
+    },
+    onError: (error, _variables, context) => {
+      if (!context?.tempId) return;
+      toast.error('Failed to send message');
+      updateMessageStatus(context.tempId, { isPending: false, isError: true });
+      console.error(error);
+    },
+    onSuccess: async (result, _variables, context) => {
+      if ('error' in result) {
+        toast.error(result.error);
+        if (context?.tempId) {
+          updateMessageStatus(context.tempId, { isPending: false, isError: true });
+        }
         return;
       }
 
       if (result.scheduled) {
         toast.success('Message scheduled');
-        // If scheduled, we might want to remove the optimistic message?
-        // Logic says "Don't optimistically update scheduled" in onMutate.
-        // So no temp message to remove.
+        await queryClient.invalidateQueries({
+          queryKey: parentId
+            ? ['scheduled-messages', channelId, parentId]
+            : ['scheduled-messages', channelId],
+        });
+        return;
+      }
+
+      if (!context?.tempId) return;
+      if (parentId) {
+        queryClient.setQueryData<CachedMessage[]>(
+          ['messages', channelId, parentId],
+          (old) => {
+            if (!old) return old;
+            const canonicalAlreadyArrived = old.some((message) => message.id === result.message.id);
+            return old.flatMap((message) => {
+              if (message.id !== context.tempId) return [message];
+              return canonicalAlreadyArrived ? [] : [result.message];
+            });
+          },
+        );
       } else {
-        // Replace optimistic message with real one
-        if (!parentId) {
-          queryClient.setQueryData(['messages', channelId], (old: any) => {
-            if (!old || !old.pages) return old;
-            const newPages = old.pages.map((page: any[]) =>
-              page.map((msg: any) =>
-                msg.id === context?.tempId ? result.message : msg
-              )
-            );
-            return { ...old, pages: newPages };
-          });
-        } else {
-          queryClient.setQueryData(
-            ['messages', channelId, parentId],
-            (old: any) => {
-              if (!old) return old;
-              return old.map((msg: any) =>
-                msg.id === context?.tempId ? result.message : msg
-              );
-            }
+        queryClient.setQueryData<MessagePages>(['messages', channelId], (old) => {
+          if (!old) return old;
+          const canonicalAlreadyArrived = old.pages.some((page) =>
+            page.some((message) => message.id === result.message.id),
           );
-        }
+          return {
+            ...old,
+            pages: old.pages.map((page) =>
+              page.flatMap((message) => {
+                if (message.id !== context.tempId) return [message];
+                return canonicalAlreadyArrived ? [] : [result.message];
+              }),
+            ),
+          };
+        });
       }
     },
   });
+
+  function withClientMutationId(input: SendMessageInput): SendMessageInput {
+    return {
+      ...input,
+      clientMutationId: input.clientMutationId ?? crypto.randomUUID(),
+    };
+  }
+
+  return {
+    ...mutation,
+    mutate: (input: SendMessageInput) => mutation.mutate(withClientMutationId(input)),
+    mutateAsync: (input: SendMessageInput) => mutation.mutateAsync(withClientMutationId(input)),
+  };
 }

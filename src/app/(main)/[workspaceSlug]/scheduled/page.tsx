@@ -1,6 +1,5 @@
 import { auth } from '@/auth';
-import { getScheduledMessages } from '@/actions/message';
-import { MessageList } from '@/components/message-list';
+import { ScheduledMessageActions } from '@/components/scheduled-messages';
 import { redirect } from 'next/navigation';
 import { CalendarClock } from 'lucide-react';
 import { prisma } from '@/lib/prisma'; // Direct db access for workspace ID? Or helper.
@@ -11,7 +10,7 @@ export default async function ScheduledMessagesPage({
   params: Promise<{ workspaceSlug: string }>;
 }) {
   const session = await auth();
-  if (!session?.user) return redirect('/login');
+  if (!session?.user?.id) return redirect('/login');
 
   const { workspaceSlug } = await params;
 
@@ -36,6 +35,7 @@ export default async function ScheduledMessagesPage({
       userId: session.user.id,
       channelId: { in: channelIds },
       scheduledAt: { gt: new Date() },
+      channel: { members: { some: { userId: session.user.id } } },
     },
     include: {
       user: true,
@@ -71,7 +71,13 @@ export default async function ScheduledMessagesPage({
                      </span>
                   </div>
                   <div className="text-sm">{msg.content}</div>
-                  {/* Cancel button logic would go here */}
+                  <div className="mt-3 flex justify-end">
+                    <ScheduledMessageActions
+                      messageId={msg.id}
+                      initialContent={msg.content}
+                      initialScheduledAt={msg.scheduledAt!}
+                    />
+                  </div>
                </div>
              ))}
            </div>

@@ -13,6 +13,10 @@ export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
     adapter,
+    omit: {
+      channel: { creationMutationId: true, creationRequestHash: true },
+      message: { requestHash: true },
+    },
     log:
       process.env.NODE_ENV === 'development'
         ? ['query', 'error', 'warn']

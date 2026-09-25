@@ -2,11 +2,12 @@
 
 import * as React from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Bell, MessageSquare, UserPlus, Info, Trash2, Archive, Hash, Loader2, MoreHorizontal, Check, Reply, Link as LinkIcon } from 'lucide-react';
+import { Bell, MessageSquare, UserPlus, Info, Trash2, Archive, Hash, Loader2, MoreHorizontal, Check, CheckCheck, Reply, Link as LinkIcon } from 'lucide-react';
 import { useNotificationStore, NotificationWithActor } from '@/stores/notification-store';
 import { useRouter, useParams } from 'next/navigation';
 import { NotificationType } from '@prisma/client';
 import { cn } from '@/lib/utils';
+import { messageHtmlToText } from '@/lib/message-html';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,7 +24,7 @@ interface NotificationListProps {
 export function NotificationList({ onItemClick }: NotificationListProps) {
   const router = useRouter();
   const params = useParams();
-  const { notifications, isLoading, markAsRead, markAsUnread, setIsOpen } = useNotificationStore();
+  const { notifications, unreadCount, isLoading, markAsRead, markAsUnread, markAllAsRead, setIsOpen } = useNotificationStore();
   const [navigatingId, setNavigatingId] = React.useState<string | null>(null);
 
   const handleNavigate = async (notification: NotificationWithActor) => {
@@ -63,14 +64,14 @@ export function NotificationList({ onItemClick }: NotificationListProps) {
 
   const getIcon = (type: NotificationType) => {
     switch (type) {
-      case 'MENTION': return <Bell className="h-4 w-4 text-yellow-500" />;
-      case 'REPLY': return <MessageSquare className="h-4 w-4 text-blue-500" />;
-      case 'REACTION': return <Info className="h-4 w-4 text-pink-500" />;
-      case 'CHANNEL_ADD': return <UserPlus className="h-4 w-4 text-green-500" />;
-      case 'CHANNEL_REMOVE': return <UserPlus className="h-4 w-4 text-red-500" />;
-      case 'CHANNEL_ARCHIVE': return <Archive className="h-4 w-4 text-gray-500" />;
-      case 'CHANNEL_DELETE': return <Trash2 className="h-4 w-4 text-red-500" />;
-      case 'PIN': return <Hash className="h-4 w-4 text-purple-500" />;
+      case 'MENTION': return <Bell className="h-4 w-4 text-warning" />;
+      case 'REPLY': return <MessageSquare className="h-4 w-4 text-saved" />;
+      case 'REACTION': return <Info className="h-4 w-4 text-primary" />;
+      case 'CHANNEL_ADD': return <UserPlus className="h-4 w-4 text-success" />;
+      case 'CHANNEL_REMOVE': return <UserPlus className="h-4 w-4 text-destructive" />;
+      case 'CHANNEL_ARCHIVE': return <Archive className="h-4 w-4 text-muted-foreground" />;
+      case 'CHANNEL_DELETE': return <Trash2 className="h-4 w-4 text-destructive" />;
+      case 'PIN': return <Hash className="h-4 w-4 text-pinned" />;
       default: return <Bell className="h-4 w-4" />;
     }
   };
@@ -145,6 +146,15 @@ export function NotificationList({ onItemClick }: NotificationListProps) {
 
   return (
     <div className="divide-y divide-border/50">
+        {unreadCount > 0 && (
+          <div className="flex items-center justify-between border-b px-4 py-2">
+            <span className="text-xs text-muted-foreground">{unreadCount} unread</span>
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => markAllAsRead()}>
+              <CheckCheck className="mr-1.5 h-3.5 w-3.5" />
+              Mark all read
+            </Button>
+          </div>
+        )}
         {notifications.map((n) => (
           <div
             key={n.id}
@@ -186,10 +196,9 @@ export function NotificationList({ onItemClick }: NotificationListProps) {
                     navigatingId === n.id && "opacity-70 pointer-events-none"
                   )}
                 >
-                   <div 
-                     className="line-clamp-3 text-sm"
-                     dangerouslySetInnerHTML={{ __html: n.resourceContent.replace(/<[^>]*>/g, '').substring(0, 300) }}
-                   />
+                   <div className="line-clamp-3 text-sm">
+                     {messageHtmlToText(n.resourceContent).slice(0, 300)}
+                   </div>
                 </div>
               )}
 
@@ -209,10 +218,10 @@ export function NotificationList({ onItemClick }: NotificationListProps) {
            </div>
 
            {/* Floating Actions Menu */}
-           <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2">
+           <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity absolute top-2 right-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Notification actions">
                     <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>

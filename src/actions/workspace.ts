@@ -2,9 +2,8 @@
 
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { z } from 'zod';
+import { messageHtmlToText } from '@/lib/message-html';
 
 const createWorkspaceSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -14,11 +13,12 @@ const createWorkspaceSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric'),
 });
 
-export async function createWorkspace(prevState: any, formData: FormData) {
+export async function createWorkspace(_prevState: unknown, formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) {
     return { error: 'Not authenticated' };
   }
+  const userId = session.user.id;
 
   const name = formData.get('name') as string;
   const slug = formData.get('slug') as string;
@@ -34,26 +34,26 @@ export async function createWorkspace(prevState: any, formData: FormData) {
       data: {
         name: validated.data.name,
         slug: validated.data.slug,
-        ownerId: session.user.id,
+        ownerId: userId,
         members: {
           create: {
-            userId: session.user.id,
+            userId,
             role: 'OWNER',
           },
         },
         channels: {
-          create: [
-            { name: 'general', creatorId: session.user.id },
-            { name: 'random', creatorId: session.user.id },
-          ],
+          create: ['general', 'random'].map((name) => ({
+            name,
+            creatorId: userId,
+            members: { create: { userId } },
+          })),
         },
       },
     });
 
-    revalidatePath('/');
     return { success: true, workspaceId: workspace.id, slug: workspace.slug };
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error) {
+    if ((error as { code?: string }).code === 'P2002') {
       return { error: 'Slug already exists' };
     }
     console.error(error);
@@ -131,7 +131,7 @@ export async function joinWorkspaceByCode(inviteCode: string) {
         // System message for joining channel
         await tx.message.create({
           data: {
-            content: 'joined the channel',
+            content: messageHtmlToText('joined the channel'),
             type: 'SYSTEM',
             channelId: channel.id,
             userId,
@@ -139,10 +139,6 @@ export async function joinWorkspaceByCode(inviteCode: string) {
         });
       }
     });
-
-    // Revalidate paths
-    revalidatePath('/invite/[inviteCode]', 'page');
-    revalidatePath(`/${workspace.slug}`);
 
     return { success: true, slug: workspace.slug };
   } catch (error) {
@@ -161,6 +157,17 @@ export async function getWorkspaceMembers(workspaceSlug: string) {
   });
 
   if (!workspace) return [];
+
+  const requester = await prisma.workspaceMember.findUnique({
+    where: {
+      workspaceId_userId: {
+        workspaceId: workspace.id,
+        userId: session.user.id,
+      },
+    },
+    select: { id: true },
+  });
+  if (!requester) return [];
 
   const members = await prisma.workspaceMember.findMany({
     where: { workspaceId: workspace.id },

@@ -11,19 +11,20 @@ import { MessageSquare, Clock, Mail } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getUserDetailsForCard } from '@/actions/user';
 import { getOrCreateDirectMessage } from '@/actions/channel';
-import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 interface UserHoverCardProps {
   userId: string;
   workspaceId: string; // Needed to fetch role
+  workspaceSlug?: string;
   children: React.ReactNode;
 }
 
 export function UserHoverCard({
   userId,
   workspaceId,
+  workspaceSlug,
   children,
 }: UserHoverCardProps) {
   const router = useRouter();
@@ -41,7 +42,8 @@ export function UserHoverCard({
     if (result.error) {
       toast.error(result.error);
     } else if (result.channelId) {
-      router.push(`/${workspaceId}/${result.channelId}`);
+      router.push(`/${workspaceSlug || workspaceId}/${result.channelId}`);
+      router.refresh();
     }
   };
 
@@ -99,8 +101,8 @@ export function UserHoverCard({
                      {user.role}
                    </div>
                    {user.status === 'ONLINE' && (
-                     <span className="flex items-center gap-1.5 text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full dark:bg-green-900/20 dark:text-green-400">
-                       <span className="size-1.5 rounded-full bg-green-500" />
+                     <span className="flex items-center gap-1.5 text-xs text-success font-medium bg-success-surface px-2 py-0.5 rounded-full">
+                       <span className="size-1.5 rounded-full bg-success" />
                        Online
                      </span>
                    )}

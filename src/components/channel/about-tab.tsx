@@ -10,18 +10,19 @@ import { DescriptionEditorDialog } from './description-editor-dialog';
 import { leaveChannel } from '@/actions/channel';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import type { Channel, User } from '@prisma/client';
+
+type AboutChannel = Pick<Channel, 'id' | 'topics' | 'description' | 'isArchived'> & {
+  workspace: { slug: string };
+  creator?: Pick<User, 'image' | 'name'> | null;
+};
 
 interface AboutTabProps {
-  channel: any;
-  currentUserId: string;
+  channel: AboutChannel;
   workspaceId: string;
 }
 
-export function AboutTab({
-  channel,
-  currentUserId,
-  workspaceId,
-}: AboutTabProps) {
+export function AboutTab({ channel, workspaceId }: AboutTabProps) {
   const router = useRouter();
   const [isLeaving, setIsLeaving] = useState(false);
 
@@ -33,6 +34,7 @@ export function AboutTab({
     } else {
       toast.success('Left channel');
       router.push(`/${channel.workspace.slug}`);
+      router.refresh();
     }
     setIsLeaving(false);
   }
@@ -77,7 +79,7 @@ export function AboutTab({
             )}
           </div>
           {channel.description ? (
-            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+            <p className="text-sm text-foreground whitespace-pre-wrap">
               {channel.description}
             </p>
           ) : (

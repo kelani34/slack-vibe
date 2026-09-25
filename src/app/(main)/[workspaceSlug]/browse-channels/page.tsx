@@ -1,6 +1,5 @@
 import { auth } from '@/auth';
 import { getAllChannels } from '@/actions/channel';
-import { joinChannel, leaveChannel } from '@/actions/channel-member';
 import { prisma } from '@/lib/prisma';
 import { redirect, notFound } from 'next/navigation';
 import { BrowseChannelsList } from './browse-channels-list';

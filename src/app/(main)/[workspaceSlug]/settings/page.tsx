@@ -11,8 +11,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { notFound } from 'next/navigation';
-import { Copy } from 'lucide-react';
 import { NotificationSettings } from '@/components/notification-settings';
+import { CopyInviteButton } from '@/components/copy-invite-button';
 
 export default async function SettingsPage({
   params,
@@ -74,9 +74,7 @@ export default async function SettingsPage({
         <CardContent className="space-y-4">
           <div className="flex gap-2">
             <Input value={inviteLink} readOnly className="font-mono text-sm" />
-            <Button variant="outline" size="icon">
-              <Copy className="h-4 w-4" />
-            </Button>
+            <CopyInviteButton value={inviteLink} />
           </div>
           <p className="text-xs text-muted-foreground">
             Invite code:{' '}

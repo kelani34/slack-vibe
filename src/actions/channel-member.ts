@@ -2,9 +2,9 @@
 
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
 import { createNotification } from './notification';
 import { NotificationType } from '@prisma/client';
+import { messageHtmlToText } from '@/lib/message-html';
 
 type TransactionClient = Omit<
   typeof prisma,
@@ -17,10 +17,10 @@ export async function getChannelMembers(channelId: string) {
 
   const channel = await prisma.channel.findUnique({
     where: { id: channelId },
-    select: { workspaceId: true },
+    select: { workspaceId: true, members: { where: { userId: session.user.id }, select: { id: true } } },
   });
 
-  if (!channel) return [];
+  if (!channel || channel.members.length === 0) return [];
 
   const members = await prisma.channelMember.findMany({
     where: { channelId },
@@ -52,6 +52,15 @@ export async function getChannelMembers(channelId: string) {
 }
 
 export async function getChannelMemberCount(channelId: string) {
+  const session = await auth();
+  if (!session?.user?.id) return 0;
+
+  const member = await prisma.channelMember.findUnique({
+    where: { channelId_userId: { channelId, userId: session.user.id } },
+    select: { id: true },
+  });
+  if (!member) return 0;
+
   const count = await prisma.channelMember.count({
     where: { channelId },
   });
@@ -62,6 +71,30 @@ export async function addChannelMember(channelId: string, userId: string) {
   const session = await auth();
   if (!session?.user?.id) return { error: 'Unauthorized' };
   const currentUserId = session.user.id;
+
+  const channel = await prisma.channel.findUnique({
+    where: { id: channelId },
+    select: { workspaceId: true, creatorId: true, members: { where: { userId: currentUserId }, select: { id: true } } },
+  });
+  if (!channel) return { error: 'Channel not found' };
+
+  const workspaceMember = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId: channel.workspaceId, userId: currentUserId } },
+    select: { role: true },
+  });
+  if (!workspaceMember) return { error: 'Not a member of this workspace' };
+  const canManage =
+    channel.members.length > 0 ||
+    channel.creatorId === currentUserId ||
+    workspaceMember.role === 'ADMIN' ||
+    workspaceMember.role === 'OWNER';
+  if (!canManage) return { error: 'Only channel members or workspace admins can add members' };
+
+  const targetWorkspaceMember = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId: channel.workspaceId, userId } },
+    select: { id: true },
+  });
+  if (!targetWorkspaceMember) return { error: 'User is not a member of this workspace' };
 
   try {
     await prisma.$transaction(async (tx: TransactionClient) => {
@@ -76,7 +109,7 @@ export async function addChannelMember(channelId: string, userId: string) {
 
       await tx.message.create({
         data: {
-          content: `added ${addedUser?.name || 'someone'} to the channel`,
+          content: messageHtmlToText(`added ${addedUser?.name || 'someone'} to the channel`),
           type: 'SYSTEM',
           channelId,
           userId: currentUserId,
@@ -94,10 +127,9 @@ export async function addChannelMember(channelId: string, userId: string) {
       resourceType: 'channel',
     });
 
-    revalidatePath('/');
     return { success: true };
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
       return { error: 'User already in channel' };
     }
     return { error: 'Failed to add member' };
@@ -108,6 +140,26 @@ export async function removeChannelMember(channelId: string, userId: string) {
   const session = await auth();
   if (!session?.user?.id) return { error: 'Unauthorized' };
   const currentUserId = session.user.id;
+
+  const channelAccess = await prisma.channel.findUnique({
+    where: { id: channelId },
+    select: {
+      workspaceId: true,
+      creatorId: true,
+      members: { where: { userId: currentUserId }, select: { id: true } },
+    },
+  });
+  if (!channelAccess) return { error: 'Channel not found' };
+  const workspaceMember = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId: channelAccess.workspaceId, userId: currentUserId } },
+    select: { role: true },
+  });
+  if (!workspaceMember) return { error: 'Not a member of this workspace' };
+  const canManage =
+    channelAccess.creatorId === currentUserId ||
+    workspaceMember.role === 'ADMIN' ||
+    workspaceMember.role === 'OWNER';
+  if (!canManage) return { error: 'Only channel creator or workspace admins can remove members' };
 
   try {
     const [removedUser, channel] = await Promise.all([
@@ -132,7 +184,7 @@ export async function removeChannelMember(channelId: string, userId: string) {
 
       await tx.message.create({
         data: {
-          content: `removed ${removedUser?.name || 'someone'} from the channel`,
+          content: messageHtmlToText(`removed ${removedUser?.name || 'someone'} from the channel`),
           type: 'SYSTEM',
           channelId,
           userId: currentUserId,
@@ -140,9 +192,8 @@ export async function removeChannelMember(channelId: string, userId: string) {
       });
     });
 
-    revalidatePath('/');
     return { success: true };
-  } catch (error) {
+  } catch {
     return { error: 'Failed to remove member' };
   }
 }
@@ -163,7 +214,7 @@ export async function leaveChannel(channelId: string) {
 
       await tx.message.create({
         data: {
-          content: 'left the channel',
+          content: messageHtmlToText('left the channel'),
           type: 'SYSTEM',
           channelId,
           userId: userId,
@@ -171,9 +222,8 @@ export async function leaveChannel(channelId: string) {
       });
     });
 
-    revalidatePath('/');
     return { success: true };
-  } catch (error) {
+  } catch {
     return { error: 'Failed to leave channel' };
   }
 }
@@ -185,9 +235,18 @@ export async function joinChannel(channelId: string) {
 
   const channel = await prisma.channel.findUnique({
     where: { id: channelId },
+    select: { id: true, workspaceId: true, type: true, isArchived: true },
   });
 
-  if (channel?.isArchived) {
+  if (!channel) return { error: 'Channel not found' };
+  const workspaceMember = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId: channel.workspaceId, userId } },
+    select: { id: true },
+  });
+  if (!workspaceMember) return { error: 'Not a member of this workspace' };
+  if (channel.type !== 'PUBLIC') return { error: 'Private channels require an invitation' };
+
+  if (channel.isArchived) {
     return { error: 'Cannot join an archived channel' };
   }
 
@@ -202,7 +261,7 @@ export async function joinChannel(channelId: string) {
 
       await tx.message.create({
         data: {
-          content: 'joined the channel',
+          content: messageHtmlToText('joined the channel'),
           type: 'SYSTEM',
           channelId,
           userId: userId,
@@ -210,10 +269,9 @@ export async function joinChannel(channelId: string) {
       });
     });
 
-    revalidatePath('/');
     return { success: true };
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
       return { error: 'Already in channel' };
     }
     return { error: 'Failed to join channel' };
@@ -234,6 +292,18 @@ export async function getWorkspaceMembersNotInChannel(
 > {
   const session = await auth();
   if (!session?.user?.id) return [];
+
+  const requester = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId: session.user.id } },
+    select: { id: true },
+  });
+  if (!requester) return [];
+
+  const channel = await prisma.channel.findUnique({
+    where: { id: channelId },
+    select: { workspaceId: true },
+  });
+  if (!channel || channel.workspaceId !== workspaceId) return [];
 
   // Get all workspace members who are NOT in this channel
   const workspaceMembers = await prisma.workspaceMember.findMany({
@@ -260,25 +330,18 @@ export async function getWorkspaceMembersNotInChannel(
     },
   });
 
-  return (workspaceMembers as any).map((m: any) => m.user);
+  return workspaceMembers.map((member) => member.user);
 }
 
 export async function markChannelAsRead(channelId: string) {
   const session = await auth();
   if (!session?.user?.id) return { error: 'Unauthorized' };
 
-  await prisma.channelMember.update({
-    where: {
-      channelId_userId: {
-        channelId,
-        userId: session.user.id,
-      },
-    },
-    data: {
-      lastViewedAt: new Date(),
-    },
+  const result = await prisma.channelMember.updateMany({
+    where: { channelId, userId: session.user.id },
+    data: { lastViewedAt: new Date() },
   });
+  if (result.count === 0) return { error: 'You are not a member of this channel' };
 
-  revalidatePath('/'); // Revalidate everything to update sidebar counts
   return { success: true };
 }

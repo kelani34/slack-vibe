@@ -3,6 +3,7 @@
 import { toggleStarChannel } from '@/actions/star';
 import { Button } from '@/components/ui/button';
 import { Star } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useOptimistic, useTransition } from 'react';
 import { toast } from 'sonner';
 
@@ -12,6 +13,7 @@ interface StarButtonProps {
 }
 
 export function StarButton({ channelId, initialStarred }: StarButtonProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [optimisticStarred, setOptimisticStarred] =
     useOptimistic(initialStarred);
@@ -25,6 +27,8 @@ export function StarButton({ channelId, initialStarred }: StarButtonProps) {
       if (result.error) {
         toast.error(result.error);
         setOptimisticStarred(optimisticStarred); // Revert
+      } else {
+        router.refresh();
       }
     });
   }
@@ -36,12 +40,13 @@ export function StarButton({ channelId, initialStarred }: StarButtonProps) {
       className="h-7 w-7"
       onClick={handleToggle}
       disabled={isPending}
+      aria-label={optimisticStarred ? 'Unstar channel' : 'Star channel'}
       title={optimisticStarred ? 'Unstar channel' : 'Star channel'}
     >
       <Star
         className={`h-4 w-4 ${
           optimisticStarred
-            ? 'fill-yellow-400 text-yellow-400'
+            ? 'fill-favorite text-favorite'
             : 'text-muted-foreground'
         }`}
       />

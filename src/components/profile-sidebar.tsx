@@ -1,6 +1,7 @@
 'use client';
 
 import { getUserProfile, hideUser } from '@/actions/user';
+import { getOrCreateDirectMessage } from '@/actions/channel';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,17 +30,19 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { EditProfileDialog } from '@/components/edit-profile-dialog';
 
 interface ProfileSidebarProps {
   workspaceSlug: string;
+  workspaceId: string;
   currentUserId: string;
   onBack?: () => void;
 }
 
 export function ProfileSidebar({
   workspaceSlug,
+  workspaceId,
   currentUserId,
   onBack,
 }: ProfileSidebarProps) {
@@ -53,7 +56,7 @@ export function ProfileSidebar({
   const { data: user, isLoading } = useQuery({
     queryKey: ['user-profile', activeProfileUserId],
     queryFn: () =>
-      activeProfileUserId ? getUserProfile(activeProfileUserId) : null,
+      activeProfileUserId ? getUserProfile(activeProfileUserId, workspaceId) : null,
     enabled: !!activeProfileUserId,
   });
 
@@ -97,15 +100,22 @@ export function ProfileSidebar({
   }
 
   async function handleStartDM() {
-    // TODO: Implement DM channel creation
-    toast.info('DM feature coming soon!');
+    if (!user?.id) return;
+    const workspace = await getOrCreateDirectMessage(workspaceId, user.id);
+    if (workspace.error || !workspace.channelId) {
+      toast.error(workspace.error || 'Unable to start direct message');
+      return;
+    }
+    setActiveProfile(null);
+    router.push(`/${workspaceSlug}/${workspace.channelId}`);
+    router.refresh();
   }
 
   const displayName = user?.displayName || user?.name || 'Unknown User';
 
   return (
     <>
-      <div className="flex h-full w-80 flex-col border-l bg-background">
+      <div className="absolute inset-0 z-20 flex h-full w-full flex-col border-l bg-background sm:static sm:w-80">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-1">
@@ -113,8 +123,9 @@ export function ProfileSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-11 w-11 sm:h-8 sm:w-8"
                 onClick={onBack}
+                aria-label="Back to conversation"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
@@ -126,15 +137,21 @@ export function ProfileSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-11 w-11 sm:h-8 sm:w-8"
                 onClick={() => setShowEditDialog(true)}
+                aria-label="Edit profile"
               >
                 <Pencil className="h-4 w-4" />
               </Button>
             ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11 sm:h-8 sm:w-8"
+                    aria-label="More profile actions"
+                  >
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -165,8 +182,9 @@ export function ProfileSidebar({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-11 w-11 sm:h-8 sm:w-8"
               onClick={() => setActiveProfile(null)}
+              aria-label="Close profile"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -191,7 +209,7 @@ export function ProfileSidebar({
                 {/* Online indicator */}
                 <div
                   className={`absolute bottom-1 right-1 h-5 w-5 rounded-full border-2 border-background flex items-center justify-center ${
-                    isOnline ? 'bg-green-500' : 'bg-gray-400'
+                    isOnline ? 'bg-success' : 'bg-muted-foreground'
                   }`}
                 >
                   <Circle className="h-2 w-2 fill-white text-white" />
@@ -206,7 +224,7 @@ export function ProfileSidebar({
               <div className="flex items-center gap-1.5 mt-1">
                 <span
                   className={`h-2 w-2 rounded-full ${
-                    isOnline ? 'bg-green-500' : 'bg-gray-400'
+                    isOnline ? 'bg-success' : 'bg-muted-foreground'
                   }`}
                 />
                 <span className="text-sm text-muted-foreground">
@@ -256,7 +274,7 @@ export function ProfileSidebar({
                       <p className="text-xs text-muted-foreground">Email</p>
                       <a
                         href={`mailto:${user.email}`}
-                        className="text-sm text-blue-500 hover:underline"
+                        className="text-sm text-primary hover:underline"
                       >
                         {user.email}
                       </a>
@@ -272,7 +290,7 @@ export function ProfileSidebar({
                         href={user.githubUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-blue-500 hover:underline"
+                        className="text-sm text-primary hover:underline"
                       >
                         {user.githubUrl.replace('https://github.com/', '@')}
                       </a>

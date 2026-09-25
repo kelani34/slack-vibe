@@ -3,6 +3,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -13,9 +14,18 @@ import { MembersTab } from './members-tab';
 import { SettingsTab } from './settings-tab';
 import { Hash, Lock } from 'lucide-react';
 import { useState } from 'react';
+import type { Channel, User } from '@prisma/client';
+
+type ChannelDetails = Pick<
+  Channel,
+  'id' | 'name' | 'type' | 'isArchived' | 'creatorId' | 'postingPermission' | 'topics' | 'description'
+> & {
+  workspace: { slug: string };
+  creator?: Pick<User, 'image' | 'name'> | null;
+};
 
 interface ChannelDetailsDialogProps {
-  channel: any;
+  channel: ChannelDetails;
   currentUserId: string;
   workspaceId: string;
   userRole: string; // Workspace role
@@ -34,7 +44,7 @@ export function ChannelDetailsDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] h-[600px] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent className="flex h-[min(600px,calc(100dvh-2rem))] max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[600px]">
         <DialogHeader className="p-6 pb-2 shrink-0">
           <DialogTitle className="flex items-center gap-2 text-xl">
             {channel.type === 'PRIVATE' ? (
@@ -49,6 +59,9 @@ export function ChannelDetailsDialog({
               </span>
             )}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            View channel information, members, and settings.
+          </DialogDescription>
         </DialogHeader>
 
         <Tabs
@@ -82,7 +95,6 @@ export function ChannelDetailsDialog({
             <TabsContent value="about" className="h-full mt-0 border-0 p-0">
               <AboutTab
                 channel={channel}
-                currentUserId={currentUserId}
                 workspaceId={workspaceId}
               />
             </TabsContent>

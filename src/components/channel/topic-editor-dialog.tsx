@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -12,11 +13,11 @@ import { useState, useEffect } from 'react';
 import { getDistinctTopics, updateChannel } from '@/actions/channel';
 import { toast } from 'sonner';
 import { Plus, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import type { Channel } from '@prisma/client';
 
 interface TopicEditorDialogProps {
-  channel: any;
+  channel: Pick<Channel, 'id' | 'topics'>;
   workspaceId: string;
 }
 
@@ -33,10 +34,14 @@ export function TopicEditorDialog({
 
   useEffect(() => {
     if (open) {
-      setTopics(channel.topics || []);
       getDistinctTopics(workspaceId).then(setExistingTopics);
     }
-  }, [open, workspaceId, channel.topics]);
+  }, [open, workspaceId]);
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) setTopics(channel.topics);
+    setOpen(nextOpen);
+  }
 
   async function handleSave() {
     const result = await updateChannel(channel.id, { topics });
@@ -85,15 +90,18 @@ export function TopicEditorDialog({
     (isInputFocused || inputValue.length > 0) && suggestions.length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" className="h-6 text-xs px-2">
           Edit
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] overflow-visible">
+      <DialogContent className="sm:max-w-[425px] sm:overflow-visible">
         <DialogHeader>
           <DialogTitle>Edit Channel Topics</DialogTitle>
+          <DialogDescription>
+            Add, remove, and manage topics for this channel.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
@@ -113,8 +121,10 @@ export function TopicEditorDialog({
                 >
                   {t}
                   <button
+                    type="button"
                     onClick={() => removeTopic(t)}
-                    className="hover:text-destructive"
+                    aria-label={`Remove topic ${t}`}
+                    className="flex h-11 w-11 items-center justify-center hover:text-destructive sm:h-6 sm:w-6"
                   >
                     <X className="h-3 w-3" />
                   </button>

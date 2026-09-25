@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { GalleryVerticalEnd, Hash, Settings, Users, Bell, Bookmark, CalendarClock, Search } from 'lucide-react';
+import { GalleryVerticalEnd, Hash, Settings, Users, Bell, Bookmark, CalendarClock, Search, Inbox } from 'lucide-react';
 import Link from 'next/link';
 import { NotificationSidebar } from '@/components/notification-sidebar';
 import { NotificationList } from '@/components/notification-list';
@@ -9,7 +9,7 @@ import { useNotificationStore } from '@/stores/notification-store';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { SearchDialog } from '@/components/search-dialog';
 
-import { NavChannels } from '@/components/nav-channels';
+import { NavChannels, type SidebarChannel } from '@/components/nav-channels';
 import { NavUser } from '@/components/nav-user';
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import {
@@ -24,25 +24,49 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar';
-import type { Channel, Workspace } from '@prisma/client';
+import type { Message, Workspace } from '@prisma/client';
 
 import { createClient } from '@/lib/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { unreadCountAfterMessage } from '@/lib/channel-unread';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // ... (imports)
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   workspaces: Workspace[];
   currentWorkspace: Workspace;
-  channels: (Channel & { unreadCount?: number })[];
-  starredChannels: (Channel & { unreadCount?: number })[];
+  channels: SidebarChannel[];
+  starredChannels: SidebarChannel[];
   user: {
     id: string;
     name: string;
     email: string;
     avatar: string;
   };
+}
+
+type ChannelUnreadOverride = {
+  count: number;
+  serverCount: number | undefined;
+  lastViewedAt: number | undefined;
+};
+
+function displayedUnreadCount(
+  channel: SidebarChannel,
+  overrides: Map<string, ChannelUnreadOverride>,
+) {
+  const override = overrides.get(channel.id);
+  const lastViewedAt = channel.lastViewedAt?.getTime();
+  if (
+    !override ||
+    override.serverCount !== channel.unreadCount ||
+    override.lastViewedAt !== lastViewedAt
+  ) {
+    return channel.unreadCount ?? 0;
+  }
+  return override.count;
 }
 
 export function AppSidebar({
@@ -54,9 +78,13 @@ export function AppSidebar({
   ...props
 }: AppSidebarProps) {
   const router = useRouter();
-  const { isOpen, setIsOpen, unreadCount } = useNotificationStore();
+  const params = useParams();
+  const isMobile = useIsMobile();
+  const currentChannelId = params?.channelId as string | undefined;
+  const { isOpen, unreadCount } = useNotificationStore();
   const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
+  const [liveUnreadCounts, setLiveUnreadCounts] = React.useState<Map<string, ChannelUnreadOverride>>(() => new Map());
   
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -71,15 +99,33 @@ export function AppSidebar({
 
   // Use ref for channels to avoid re-subscribing when unread counts change
   const channelsRef = React.useRef(channels);
-  const starredChannelsRef = React.useRef(starredChannels);
+  const currentChannelIdRef = React.useRef(currentChannelId);
+  const liveUnreadCountsRef = React.useRef(liveUnreadCounts);
+  const seenMessageIdsRef = React.useRef(new Set<string>());
+
+  const setLiveUnreadCount = React.useCallback((channel: SidebarChannel, count: number) => {
+    const next = new Map(liveUnreadCountsRef.current);
+    next.set(channel.id, {
+      count,
+      serverCount: channel.unreadCount,
+      lastViewedAt: channel.lastViewedAt?.getTime(),
+    });
+    liveUnreadCountsRef.current = next;
+    setLiveUnreadCounts(next);
+  }, []);
 
   useEffect(() => {
     channelsRef.current = channels;
-    starredChannelsRef.current = starredChannels;
   }, [channels, starredChannels]);
 
   useEffect(() => {
+    currentChannelIdRef.current = currentChannelId;
+  }, [currentChannelId]);
+
+  useEffect(() => {
     const supabase = createClient();
+    let connectionNeedsResync = false;
+    let effectIsActive = true;
 
     const channel = supabase
       .channel('sidebar-realtime')
@@ -121,7 +167,6 @@ export function AppSidebar({
         () => {
           // Fetch fresh notifications to get actor details and update count
           useNotificationStore.getState().fetchNotifications();
-          router.refresh();
         }
       )
       // Listen for new messages to update unread counts
@@ -132,35 +177,58 @@ export function AppSidebar({
           schema: 'public',
           table: 'messages',
         },
-        (payload: any) => {
-          // Refresh if message is in one of our channels and NOT from us
-          const allChannelIds = new Set([
-            ...channelsRef.current.map((c) => c.id),
-            ...starredChannelsRef.current.map((c) => c.id),
-          ]);
-
-          if (
-            allChannelIds.has(payload.new.channelId) &&
-            payload.new.userId !== user.id
-          ) {
-            // Dispatch global event for MessageList to consume if its own subscription fails
-            if (typeof window !== 'undefined') {
-              const event = new CustomEvent('supabase-new-message', {
-                detail: payload.new,
-              });
-              window.dispatchEvent(event);
-            }
-
-            router.refresh();
+        (payload: { new: Partial<Message> }) => {
+          const message = payload.new;
+          const channel = channelsRef.current.find(({ id }) => id === message.channelId);
+          if (!channel || !message.id) return;
+          if (seenMessageIdsRef.current.has(message.id)) return;
+          seenMessageIdsRef.current.add(message.id);
+          if (seenMessageIdsRef.current.size > 500) {
+            const oldestId = seenMessageIdsRef.current.values().next().value;
+            if (oldestId) seenMessageIdsRef.current.delete(oldestId);
           }
+
+          const currentCount = displayedUnreadCount(channel, liveUnreadCountsRef.current);
+          const nextCount = unreadCountAfterMessage(currentCount, message, user.id, channel.lastViewedAt ?? new Date());
+          if (nextCount === currentCount || message.userId === user.id) return;
+
+          const channelIsFocused =
+            currentChannelIdRef.current === channel.id &&
+            document.visibilityState === 'visible' &&
+            document.hasFocus();
+          if (!channelIsFocused) setLiveUnreadCount(channel, nextCount);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (!effectIsActive) return;
+
+        if (status === 'SUBSCRIBED') {
+          if (connectionNeedsResync) {
+            connectionNeedsResync = false;
+            router.refresh();
+            void useNotificationStore.getState().fetchNotifications();
+          }
+          return;
+        }
+
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          connectionNeedsResync = true;
+        }
+      });
+
+    const handleChannelRead = (event: Event) => {
+      const detail = (event as CustomEvent<{ channelId?: string }>).detail;
+      const channel = detail?.channelId && channelsRef.current.find(({ id }) => id === detail.channelId);
+      if (channel) setLiveUnreadCount(channel, 0);
+    };
+    window.addEventListener('channel-read', handleChannelRead);
 
     return () => {
+      effectIsActive = false;
       supabase.removeChannel(channel);
+      window.removeEventListener('channel-read', handleChannelRead);
     };
-  }, [user.id, router]); // Dependency list kept minimal to avoid re-subscription loops
+  }, [setLiveUnreadCount, user.id, router]); // Keep the subscription stable between channel switches
 
   const formattedWorkspaces = workspaces.map((w) => ({
     name: w.name,
@@ -171,10 +239,28 @@ export function AppSidebar({
   }));
 
   // Get starred channel IDs for filtering
-  const starredIds = new Set(starredChannels.map((c) => c.id));
+  const channelsWithUnread = channels.map((channel) => {
+    const count = displayedUnreadCount(channel, liveUnreadCounts);
+    return count === channel.unreadCount ? channel : { ...channel, unreadCount: count };
+  });
+  const starredChannelsWithUnread = starredChannels.map((channel) => {
+    const count = displayedUnreadCount(channel, liveUnreadCounts);
+    return count === channel.unreadCount ? channel : { ...channel, unreadCount: count };
+  });
+  const starredIds = new Set(starredChannelsWithUnread.map((c) => c.id));
 
   // Non-starred channels
-  const nonStarredChannels = channels.filter((c) => !starredIds.has(c.id));
+  const isDirectMessage = (channel: SidebarChannel) =>
+    channel.type === 'DIRECT' || channel.name.startsWith('dm-');
+  const directMessages = channelsWithUnread.filter(isDirectMessage);
+  const nonStarredChannels = channelsWithUnread.filter(
+    (channel) => !isDirectMessage(channel) && !starredIds.has(channel.id)
+  );
+  const starredRegularChannels = starredChannelsWithUnread.filter((channel) => !isDirectMessage(channel));
+  const totalUnreadMessages = channelsWithUnread.reduce(
+    (total, channel) => total + (channel.unreadCount ?? 0),
+    0,
+  );
 
   // ... (previous useEffects)
 
@@ -205,7 +291,7 @@ export function AppSidebar({
           <>
             {/* Starred Channels Section */}
             <NavChannels
-              channels={starredChannels}
+              channels={starredRegularChannels}
               workspaceSlug={currentWorkspace?.slug}
               workspaceId={currentWorkspace?.id}
               sectionLabel="Starred"
@@ -221,11 +307,37 @@ export function AppSidebar({
               showCreateButton={true}
             />
 
+            <NavChannels
+              channels={directMessages}
+              workspaceSlug={currentWorkspace?.slug}
+              workspaceId={currentWorkspace?.id}
+              sectionLabel="Direct messages"
+              sectionHref={`/${currentWorkspace?.slug}/dms`}
+              showCreateButton={false}
+              isDirect
+            />
+
             {/* Workspace Settings and Activity */}
             <SidebarGroup className="group-data-[collapsible=icon]:hidden mt-auto">
               {/* ... existing items ... */} 
               <SidebarGroupLabel>Workspace</SidebarGroupLabel>
               <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild tooltip="Unread">
+                    <Link
+                      href={`/${currentWorkspace?.slug}/unreads`}
+                      aria-label={`Unread ${totalUnreadMessages > 99 ? '99+' : totalUnreadMessages}`}
+                    >
+                      <Inbox className="h-4 w-4" />
+                      <span>Unread</span>
+                      {totalUnreadMessages > 0 && (
+                        <span className="ml-auto rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
+                          {totalUnreadMessages > 99 ? '99+' : totalUnreadMessages}
+                        </span>
+                      )}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
                     <PopoverTrigger asChild>
@@ -236,17 +348,21 @@ export function AppSidebar({
                         <Bell className="h-4 w-4" />
                         <span>Activity</span>
                         {unreadCount > 0 && (
-                          <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white shadow-sm">
+                          <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-unread text-[10px] font-medium text-unread-foreground shadow-sm">
                             {unreadCount > 99 ? '99+' : unreadCount}
                           </span>
                         )}
                       </SidebarMenuButton>
                     </PopoverTrigger>
-                    <PopoverContent side="right" align="start" className="w-[500px] p-0">
+                    <PopoverContent
+                      side={isMobile ? 'top' : 'right'}
+                      align="start"
+                      className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[500px] overflow-hidden p-0"
+                    >
                       <div className="p-4 border-b">
                         <h4 className="font-medium text-sm">Notifications</h4>
                       </div>
-                      <div className="max-h-[500px] overflow-y-auto p-2">
+                      <div className="max-h-[min(500px,calc(100dvh-7rem))] overflow-y-auto p-2">
                         <NotificationList onItemClick={() => setIsPopoverOpen(false)} />
                       </div>
                     </PopoverContent>

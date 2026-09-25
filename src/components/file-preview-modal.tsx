@@ -3,11 +3,10 @@
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Download, ExternalLink, X, FileText } from 'lucide-react';
+import { Download, X, FileText } from 'lucide-react';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 interface FilePreviewModalProps {
@@ -31,7 +30,7 @@ export function FilePreviewModal({
 
   return (
     <Dialog open={!!url} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-5xl h-[90vh] p-0 overflow-hidden bg-background/95 border-none shadow-2xl flex flex-col">
+      <DialogContent className="flex h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-5xl flex-col overflow-hidden border-none bg-background/95 p-0 shadow-2xl">
         <DialogTitle asChild>
           <VisuallyHidden>{name || 'File Preview'}</VisuallyHidden>
         </DialogTitle>
@@ -54,7 +53,7 @@ export function FilePreviewModal({
               <Download className="size-4 mr-2" />
               Download
             </a>
-            <Button variant="ghost" size="icon" onClick={onClose}>
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close preview">
               <X className="size-5" />
             </Button>
           </div>

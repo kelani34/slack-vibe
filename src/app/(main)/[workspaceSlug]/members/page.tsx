@@ -2,8 +2,9 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { notFound } from 'next/navigation';
+import { DirectMessageComposeDialog, type DirectMessageMember } from '@/components/direct-message-compose-dialog';
 
 export default async function MembersPage({
   params,
@@ -11,12 +12,16 @@ export default async function MembersPage({
   params: Promise<{ workspaceSlug: string }>;
 }) {
   const session = await auth();
-  if (!session?.user) return null;
+  if (!session?.user?.id) return null;
+  const currentUserId = session.user.id;
 
   const { workspaceSlug } = await params;
 
   const workspace = await prisma.workspace.findUnique({
-    where: { slug: workspaceSlug },
+    where: {
+      slug: workspaceSlug,
+      members: { some: { userId: currentUserId } },
+    },
     include: {
       members: {
         include: {
@@ -28,6 +33,15 @@ export default async function MembersPage({
   });
 
   if (!workspace) return notFound();
+
+  const directMessageMembers: DirectMessageMember[] = workspace.members.map(({ user }) => ({
+    id: user.id,
+    name: user.name,
+    displayName: user.displayName,
+    avatarUrl: user.avatarUrl,
+    image: user.image,
+    email: user.email,
+  }));
 
   return (
     <div className="p-6 space-y-6">
@@ -57,6 +71,16 @@ export default async function MembersPage({
               >
                 {member.role}
               </Badge>
+              {member.user.id !== currentUserId && (
+                <DirectMessageComposeDialog
+                  workspaceId={workspace.id}
+                  workspaceSlug={workspace.slug}
+                  currentUserId={currentUserId}
+                  members={directMessageMembers}
+                  initialSelectedIds={[member.user.id]}
+                  triggerLabel="Message"
+                />
+              )}
             </CardContent>
           </Card>
         ))}

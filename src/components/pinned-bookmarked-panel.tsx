@@ -18,11 +18,16 @@ import {
 } from '@/components/ui/popover';
 import { useQuery } from '@tanstack/react-query';
 import { Pin, Bookmark, MessageSquare } from 'lucide-react';
+import { messageHtmlToText } from '@/lib/message-html';
 
 interface PinnedBookmarkedPanelProps {
   channelId: string;
   onMessageClick: (messageId: string, parentId?: string | null) => void;
 }
+
+type PinnedMessage = Awaited<ReturnType<typeof getPinnedMessages>>[number];
+type BookmarkedMessage = Awaited<ReturnType<typeof getBookmarkedMessages>>[number];
+type PreviewMessage = PinnedMessage['message'];
 
 export function PinnedBookmarkedPanel({
   channelId,
@@ -37,7 +42,7 @@ export function PinnedBookmarkedPanel({
     queryKey: ['bookmarked-messages', channelId],
     queryFn: async () => {
       const all = await getBookmarkedMessages();
-      return all.filter((b: any) => b.message.channelId === channelId);
+      return all.filter((bookmark) => bookmark.message.channelId === channelId);
     },
   });
 
@@ -50,10 +55,7 @@ export function PinnedBookmarkedPanel({
   const latestPinned = pinnedMessages?.[0]?.message;
 
   const getTextPreview = (content: string) => {
-    if (typeof document === 'undefined') return content;
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = content;
-    return (tempDiv.textContent || tempDiv.innerText || '').slice(0, 60);
+    return messageHtmlToText(content).slice(0, 60);
   };
 
   return (
@@ -66,7 +68,7 @@ export function PinnedBookmarkedPanel({
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-7 px-2 gap-1">
-                    <Pin className="h-3.5 w-3.5 text-orange-500" />
+                    <Pin className="h-3.5 w-3.5 text-pinned" />
                     <span className="text-xs">{pinnedCount}</span>
                   </Button>
                 </PopoverTrigger>
@@ -78,7 +80,7 @@ export function PinnedBookmarkedPanel({
               className="w-80 p-2 max-h-48 overflow-y-auto"
             >
               <div className="space-y-0.5">
-                {pinnedMessages?.map((pinned: any) => (
+                {pinnedMessages?.map((pinned: PinnedMessage) => (
                   <MessagePreview
                     key={pinned.id}
                     message={pinned.message}
@@ -99,7 +101,7 @@ export function PinnedBookmarkedPanel({
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-7 px-2 gap-1">
-                    <Bookmark className="h-3.5 w-3.5 text-blue-500" />
+                    <Bookmark className="h-3.5 w-3.5 text-saved" />
                     <span className="text-xs">{bookmarkedCount}</span>
                   </Button>
                 </PopoverTrigger>
@@ -111,7 +113,7 @@ export function PinnedBookmarkedPanel({
               className="w-80 p-2 max-h-48 overflow-y-auto"
             >
               <div className="space-y-0.5">
-                {bookmarkedMessages?.map((bookmark: any) => (
+                {bookmarkedMessages?.map((bookmark: BookmarkedMessage) => (
                   <MessagePreview
                     key={bookmark.id}
                     message={bookmark.message}
@@ -159,14 +161,11 @@ function MessagePreview({
   message,
   onClick,
 }: {
-  message: any;
+  message: PreviewMessage;
   onClick: () => void;
 }) {
   const getTextPreview = (content: string) => {
-    if (typeof document === 'undefined') return content;
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = content;
-    return (tempDiv.textContent || tempDiv.innerText || '').slice(0, 80);
+    return messageHtmlToText(content).slice(0, 80);
   };
 
   return (

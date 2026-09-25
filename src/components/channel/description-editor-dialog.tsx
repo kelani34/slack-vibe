@@ -13,9 +13,10 @@ import { useState } from 'react';
 import { updateChannel } from '@/actions/channel';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import type { Channel } from '@prisma/client';
 
 interface DescriptionEditorDialogProps {
-  channel: any;
+  channel: Pick<Channel, 'id' | 'description'>;
 }
 
 export function DescriptionEditorDialog({
