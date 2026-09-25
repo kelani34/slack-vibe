@@ -162,6 +162,10 @@ Unread aggregation must use each member's read cursor, exclude own messages, fut
 
 These extend the original cache matrix for [new routes](routes.md). They are proposed starting values to measure, not evidence of performance already achieved.
 
+### Member hover-card query activation
+
+The member hover card uses the actor/workspace/user-scoped TanStack Query cache (`staleTime` five minutes) but now enables its query only while the card is open. This prevents a message list from eagerly issuing profile-detail requests for every rendered author whose card the user never opens. Cached values remain available for fast reopen; profile edits, role changes and workspace removal still need to invalidate/refetch the scoped entry, and server authorization remains mandatory on every read. Component tests verify the disabled-before-open/enabled-after-open transition and retain cached content when a background refresh fails. This is a query-volume reduction by design; no measured page-load or 10× latency claim is made. Validate with network traces on a populated conversation and a production build before assigning a quantitative budget.
+
 | Data | Scope / freshness | Update and access policy |
 |---|---|---|
 | Home summary | Actor/workspace; 15–30s, first 5–10 rows per section | Reuse summary queries; invalidate affected section on send/read/draft changes; no fan-out to every history |

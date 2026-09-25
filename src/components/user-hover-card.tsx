@@ -7,8 +7,10 @@ import {
 } from '@/components/ui/hover-card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { MessageSquare, Clock, Mail } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { getUserDetailsForCard } from '@/actions/user';
 import { getOrCreateDirectMessage } from '@/actions/channel';
 import { useRouter } from 'next/navigation';
@@ -28,13 +30,15 @@ export function UserHoverCard({
   children,
 }: UserHoverCardProps) {
   const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
 
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading, isError, refetch } = useQuery({
     queryKey: ['user-card', userId, workspaceId],
     queryFn: async () => {
       return await getUserDetailsForCard(userId, workspaceId);
     },
     staleTime: 1000 * 60 * 5, // 5 mins
+    enabled: isOpen,
   });
 
   const handleMessage = async () => {
@@ -57,21 +61,36 @@ export function UserHoverCard({
     : null;
 
   return (
-    <HoverCard openDelay={300}>
+    <HoverCard open={isOpen} onOpenChange={setIsOpen} openDelay={300}>
       <HoverCardTrigger asChild>{children}</HoverCardTrigger>
       <HoverCardContent className="w-80 p-0 overflow-hidden" align="start">
         {isLoading ? (
-          <div className="p-4 flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <div className="size-12 rounded-full bg-muted animate-pulse" />
+          <div role="status" aria-label="Loading member details" className="p-4 flex flex-col gap-3">
+            <div aria-hidden="true" className="flex items-center gap-3">
+              <Skeleton className="size-12 rounded-full" />
               <div className="space-y-1.5">
-                <div className="h-4 w-24 bg-muted animate-pulse rounded" />
-                <div className="h-3 w-16 bg-muted animate-pulse rounded" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-16" />
               </div>
             </div>
           </div>
+        ) : isError && !user ? (
+          <div role="alert" className="flex flex-col items-start gap-3 p-4">
+            <p className="text-sm text-muted-foreground">Couldn’t load member details.</p>
+            <Button variant="outline" size="sm" onClick={() => void refetch()}>
+              Try again
+            </Button>
+          </div>
         ) : user ? (
           <div className="flex flex-col">
+            {isError && (
+              <div role="alert" className="flex items-center justify-between gap-3 px-4 pt-3 text-sm text-muted-foreground">
+                <span>Couldn’t refresh member details.</span>
+                <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                  Try again
+                </Button>
+              </div>
+            )}
              {/* Header with gradient or color */}
              <div className="h-16 bg-gradient-to-r from-blue-500 to-indigo-500 relative">
              </div>
@@ -129,7 +148,7 @@ export function UserHoverCard({
           </div>
         ) : (
           <div className="p-4 text-sm text-muted-foreground">
-            User details not found
+            Member details are unavailable.
           </div>
         )}
       </HoverCardContent>
