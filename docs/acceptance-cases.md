@@ -268,6 +268,7 @@ Owner: W04, W06, W08. Required layers: I,E. State: **DEVELOPER-TESTED SLICE / IN
 - **TC-F19-04** — New replies do not force a user reading earlier replies to the bottom.
 - **TC-F19-05** — Scheduled replies remain hidden and do not increment public counts before publication.
 - **TC-F19-06** — Closing/reopening a thread preserves focus, context and recoverable reply draft on mobile; initial and refresh failures offer retry while retaining cached replies.
+- Developer evidence: `src/components/thread-sidebar.test.tsx` proves parent and reply queries remain disabled until the viewer identity is known; thread cache keys retain actor/workspace/resource scope. Live membership revocation and independent QA remain NOT RUN.
 - Developer evidence: `src/components/thread-sidebar.test.tsx` verifies a named reply-loading status, retry after an initial query failure, retention of cached replies and retry after a refresh failure, plus exact thread/root invalidation for new published replies. This is component evidence for a narrow slice; pagination, focus/draft/mobile behavior, realtime provider delivery and independent QA remain NOT RUN.
 
 ### F20: Emoji reactions
