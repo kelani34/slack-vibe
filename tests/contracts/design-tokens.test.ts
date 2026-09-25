@@ -113,11 +113,18 @@ describe('message state design tokens', () => {
     expect(globals).toContain('--motion-duration-exit: 130ms;');
     expect(globals).toContain('--motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);');
     expect(globals).toContain('--motion-distance-feedback: 4px;');
+    expect(globals).toContain('--motion-scale-press: 0.98;');
     expect(globals).toContain('animation: message-highlight var(--motion-duration-highlight) var(--motion-ease-out) 1;');
     expect(globals).toContain('animation: dm-avatar-stack-enter var(--motion-duration-panel) var(--motion-ease-out) both;');
     expect(globals).toContain('transform: translateY(var(--motion-distance-feedback)) scale(0.94);');
+    expect(globals).toContain('[data-slot="button"]:active:not(:disabled)');
+    expect(globals).toContain('transform: scale(var(--motion-scale-press));');
+    expect(globals).toContain('transition-property: background-color, color, transform;');
+    expect(globals).toContain('transition-duration: var(--motion-duration-fast);');
+    expect(globals).toContain('transition-timing-function: var(--motion-ease-out);');
     expect(globals).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?--motion-duration-standard:\s*0ms;/);
     expect(globals).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?--motion-distance-feedback:\s*0px;/);
+    expect(globals).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?--motion-scale-press:\s*1;/);
     expect(globals).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?outline: 1px solid color-mix\(/);
   });
 });

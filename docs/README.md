@@ -4,7 +4,7 @@ Assessed **18 September 2026**, against commit **13a87c4**. This documentation r
 
 ## Start here
 
-**Use the [full delivery plan](delivery-plan.md) for what comes next.** P00–P14 sequence every package, with phase gates, relative timelines, dedicated QA capacity, architecture/performance work and rollback. Its [persistent implementation loop](delivery-plan.md#persistent-implementation-loop) requires every slice to start from the docs and failing tests, then update evidence and select the next unclosed dependency. [Delivery traceability](delivery-traceability.md) maps all 90 capabilities, 108 requirements and 78 routes. [Acceptance cases](acceptance-cases.md) adds 652 concrete planned scenarios, 24 universal case dimensions and 20 cross-domain regressions. A few named slices now have developer test evidence; full independent QA and the complete acceptance catalogue remain unexecuted.
+**Use the [full delivery plan](delivery-plan.md) for what comes next.** P00–P14 sequence every package, with phase gates, relative timelines, dedicated QA capacity, architecture/performance work and rollback. Its [persistent implementation loop](delivery-plan.md#persistent-implementation-loop) requires every slice to start from the docs and failing tests, then update evidence and select the next unclosed dependency. [Delivery traceability](delivery-traceability.md) maps all 90 capabilities, 108 requirements and 78 routes. [Acceptance cases](acceptance-cases.md) adds 653 concrete planned scenarios, 24 universal case dimensions and 20 cross-domain regressions. A few named slices now have developer test evidence; full independent QA and the complete acceptance catalogue remain unexecuted.
 
 **Browser inspection is now split by environment:** the signed-in GitHub session reaches the local authenticated workspace; the deployed callback result remains an environment-specific release check. See [browser evidence](browser-assessment.md) and the [ordered repair backlog](repair-plan.md). The implementation follow-up has started with TDD, access boundaries, mobile navigation and the core DM workflow; production deployment and production-data tests remain out of scope for this slice.
 
@@ -35,7 +35,7 @@ The production-scope follow-ups define [78 route patterns](routes.md) and F49–
 | [Full delivery plan](delivery-plan.md) | P00–P14 implementation order, phase gates, capacity and release workflow | Starting or sequencing any implementation |
 | [Commit and push workflow](contribution-workflow.md) | Branch, TDD evidence, commit format, pre-push gates and hosted-CI handoff | Preparing, committing or pushing any implementation slice |
 | [Delivery traceability](delivery-traceability.md) | All 90 capabilities, 108 requirements and 78 routes mapped to phases/cases | Checking for missing or prematurely closed scope |
-| [Acceptance cases](acceptance-cases.md) | 652 planned feature scenarios, universal dimensions, route recipes and integrated regressions | Defining red tests and independent QA procedures |
+| [Acceptance cases](acceptance-cases.md) | 653 planned feature scenarios, universal dimensions, route recipes and integrated regressions | Defining red tests and independent QA procedures |
 | [Browser evidence](browser-assessment.md) | Live entry-point inspection and authentication blockers B02/B03 | Restoring authenticated verification |
 | [Repair backlog](repair-plan.md) | Ordered fixes for A01–A22 and B02/B03 with regression proof | Fixing current defects before adding dependent features |
 | [Assessment](assessment.md) | Current implementation, evidence, defects, verification limits | Understanding what actually exists |
@@ -88,7 +88,7 @@ flowchart TD
 
 - `P00…P14`: ordered delivery phases in [delivery-plan.md](delivery-plan.md); shared W18/W19 run throughout.
 - `B01…B05`: browser evidence in [browser-assessment.md](browser-assessment.md); B02/B03 are authentication blockers.
-- `TC-Fnn-*`: 652 planned feature scenarios; U01–U24 universal case dimensions and X01–X20 integrated regressions in [acceptance-cases.md](acceptance-cases.md).
+- `TC-Fnn-*`: 653 planned feature scenarios; U01–U24 universal case dimensions and X01–X20 integrated regressions in [acceptance-cases.md](acceptance-cases.md).
 - `1…90`: plain-language product catalogue entries in [features.md](features.md), mapped to the F requirements; not a count of pages or infrastructure tasks.
 - `F01…F108`: feature requirements, authoritative in [features.md](features.md); F49–F68 add production completeness, F69–F78 add collaboration and F79–F108 specify calls, meetings and platform breadth.
 - `R01…R78`: route patterns, authoritative in [routes.md](routes.md), including existing/evolved/new and conditional destinations.
