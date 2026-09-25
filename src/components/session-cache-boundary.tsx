@@ -21,6 +21,7 @@ export function SessionCacheBoundary() {
       router.replace(`/login?${new URLSearchParams({ callbackUrl })}`);
     } else if (previousActorId.current && previousActorId.current !== actorId) {
       queryClient.clear();
+      router.refresh();
     }
     previousActorId.current = actorId;
   }, [queryClient, router, session, status]);

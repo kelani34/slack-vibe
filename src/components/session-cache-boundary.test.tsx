@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { useSession, replace } = vi.hoisted(() => ({ useSession: vi.fn(), replace: vi.fn() }));
+const { useSession, replace, refresh } = vi.hoisted(() => ({ useSession: vi.fn(), replace: vi.fn(), refresh: vi.fn() }));
 vi.mock('next-auth/react', () => ({ useSession }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace, refresh }) }));
 
 import { SessionCacheBoundary } from './session-cache-boundary';
 
@@ -20,6 +20,7 @@ describe('session cache boundary', () => {
   beforeEach(() => {
     useSession.mockReset();
     replace.mockReset();
+    refresh.mockReset();
   });
 
   it('clears private query data after another tab signs out', async () => {
@@ -58,5 +59,6 @@ describe('session cache boundary', () => {
     );
 
     await waitFor(() => expect(queryClient.getQueryData(['messages', 'private-channel'])).toBeUndefined());
+    expect(refresh).toHaveBeenCalledOnce();
   });
 });
