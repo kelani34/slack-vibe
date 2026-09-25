@@ -5,7 +5,7 @@ import type { PropsWithChildren } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
 
 import { MessageItem } from './message-item';
-import { pinMessage } from '@/actions/message-actions';
+import { bookmarkMessage, pinMessage } from '@/actions/message-actions';
 
 vi.mock('@/actions/message-actions', () => ({
   toggleReaction: vi.fn(),
@@ -228,4 +228,52 @@ it('invalidates only this actor and workspace after pinning a message', async ()
     });
   });
   expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['messages'] });
+  expect(invalidateQueries).toHaveBeenCalledWith({
+    queryKey: ['pinned-messages', 'user-1', 'workspace-1', 'channel-1'],
+  });
+});
+
+it('invalidates only this actor workspace channel bookmark after saving a message', async () => {
+  const user = userEvent.setup();
+  vi.mocked(bookmarkMessage).mockResolvedValue({ success: true });
+  const queryClient = new QueryClient();
+  const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
+  render(
+    <MessageItem
+      workspaceId="workspace-1"
+      currentUserId="user-1"
+      message={{
+        id: 'scoped-bookmark',
+        channelId: 'channel-1',
+        userId: 'user-1',
+        parentId: null,
+        content: '<p>Saved</p>',
+        type: 'REGULAR',
+        createdAt: new Date('2026-09-24T10:00:00Z'),
+        updatedAt: new Date('2026-09-24T10:00:00Z'),
+        isPinned: false,
+        isDeleted: false,
+        isEdited: false,
+        user: { id: 'user-1', name: 'Alex', avatarUrl: null },
+        attachments: [],
+        reactions: [],
+        replies: [],
+        _count: { replies: 0 },
+      }}
+    />,
+    { wrapper },
+  );
+
+  await user.click(screen.getByRole('button', { name: 'Bookmark message' }));
+
+  await waitFor(() => {
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['bookmarked-messages', 'user-1', 'workspace-1', 'channel-1'],
+    });
+  });
+  expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['bookmarked-messages'] });
 });

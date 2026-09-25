@@ -155,15 +155,22 @@ export async function isMessageBookmarked(messageId: string) {
   return !!bookmark;
 }
 
-// Get all bookmarked messages for user
-export async function getBookmarkedMessages() {
+// Get bookmarked messages for a channel in a workspace
+export async function getBookmarkedMessages(channelId: string, workspaceId: string) {
   const session = await auth();
   if (!session?.user?.id) return [];
 
   const bookmarks = await prisma.bookmarkedMessage.findMany({
     where: {
       userId: session.user.id,
-      message: { channel: { members: { some: { userId: session.user.id } } } },
+      message: {
+        channelId,
+        channel: {
+          workspaceId,
+          members: { some: { userId: session.user.id } },
+          workspace: { members: { some: { userId: session.user.id } } },
+        },
+      },
     },
     include: {
       message: {
@@ -277,12 +284,19 @@ export async function unpinMessage(messageId: string, channelId: string) {
 }
 
 // Get pinned messages for a channel
-export async function getPinnedMessages(channelId: string) {
+export async function getPinnedMessages(channelId: string, workspaceId: string) {
   const session = await auth();
   if (!session?.user?.id) return [];
 
-  const member = await prisma.channelMember.findUnique({
-    where: { channelId_userId: { channelId, userId: session.user.id } },
+  const member = await prisma.channelMember.findFirst({
+    where: {
+      channelId,
+      userId: session.user.id,
+      channel: {
+        workspaceId,
+        workspace: { members: { some: { userId: session.user.id } } },
+      },
+    },
     select: { id: true },
   });
   if (!member) return [];

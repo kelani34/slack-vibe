@@ -7,4 +7,8 @@ export const messageQueryKeys = {
     ['messages', actorId, workspaceId, channelId, parentId] as const,
   detail: (actorId: string, workspaceId: string, messageId: string) =>
     ['message', actorId, workspaceId, messageId] as const,
+  pinned: (actorId: string, workspaceId: string, channelId: string) =>
+    ['pinned-messages', actorId, workspaceId, channelId] as const,
+  bookmarks: (actorId: string, workspaceId: string, channelId: string) =>
+    ['bookmarked-messages', actorId, workspaceId, channelId] as const,
 };
