@@ -15,6 +15,7 @@ import { useInView } from 'react-intersection-observer';
 import type { Message, Reaction } from '@prisma/client';
 import { markChannelAsRead } from '@/actions/channel-member';
 import { shouldShowAvatar } from '@/lib/message-presentation';
+import { messageQueryKeys } from '@/lib/message-query-keys';
 
 type MessageListEntry = Pick<
   Message,
@@ -99,6 +100,10 @@ export function MessageList({
   messages: providedMessages,
 }: MessageListProps) {
   const queryClient = useQueryClient();
+  const timelineKey = useMemo(
+    () => messageQueryKeys.timeline(currentUserId ?? 'anonymous', workspaceId, channelId),
+    [channelId, currentUserId, workspaceId],
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportKey = `${currentUserId ?? 'anonymous'}:${workspaceId}:${channelId}`;
   // Ref to track if we should auto-scroll to bottom
@@ -112,7 +117,7 @@ export function MessageList({
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useInfiniteQuery({
-      queryKey: ['messages', channelId],
+      queryKey: timelineKey,
       queryFn: ({ pageParam }) =>
         getMessages(channelId, pageParam),
       initialPageParam: undefined as string | undefined,
@@ -182,10 +187,10 @@ export function MessageList({
     setContextUnavailable(false);
     setContextLoadFailed(false);
     shouldScrollToBottomRef.current = true;
-    if (previous) queryClient.setQueryData(['messages', channelId], previous);
-    else void queryClient.invalidateQueries({ queryKey: ['messages', channelId], exact: true });
+    if (previous) queryClient.setQueryData(timelineKey, previous);
+    else void queryClient.invalidateQueries({ queryKey: timelineKey, exact: true });
     if (updateLocation) onContextExit?.();
-  }, [channelId, onContextExit, queryClient, viewportKey]);
+  }, [onContextExit, queryClient, timelineKey, viewportKey]);
 
   useEffect(() => {
     if (previousViewportKeyRef.current !== viewportKey) {
@@ -228,7 +233,7 @@ export function MessageList({
   useEffect(() => {
     if (!contextRequestMessageId) return;
     let isCurrentRequest = true;
-    const queryKey = ['messages', channelId] as const;
+    const queryKey = timelineKey;
     setContextUnavailable(false);
     setContextLoadFailed(false);
     setIsLoadingContext(true);
@@ -278,7 +283,7 @@ export function MessageList({
     return () => {
       isCurrentRequest = false;
     };
-  }, [channelId, contextRequestMessageId, contextRetryAttempt, queryClient, rememberCurrentViewport]);
+  }, [channelId, contextRequestMessageId, contextRetryAttempt, queryClient, rememberCurrentViewport, timelineKey]);
 
   useEffect(() => {
     // Mark as read on mount
@@ -356,7 +361,8 @@ export function MessageList({
       // Filter for current channel
       if (!newMsgPartial.id || newMsgPartial.channelId !== channelId) return;
       if (newMsgPartial.parentId !== null || newMsgPartial.scheduledAt !== null || newMsgPartial.isDeleted !== false) return;
-      const cachedMessages = queryClient.getQueryData<MessagePages>(['messages', channelId]);
+      const queryKey = timelineKey;
+      const cachedMessages = queryClient.getQueryData<MessagePages>(queryKey);
       if (cachedMessages?.pages.some((page) => page.some(({ id }) => id === newMsgPartial.id))) return;
       if (seenMessageIdsRef.current.has(newMsgPartial.id)) return;
       seenMessageIdsRef.current.add(newMsgPartial.id);
@@ -369,7 +375,7 @@ export function MessageList({
         const fullMessage = await getMessageById(newMsgPartial.id);
 
         if (fullMessage) {
-          queryClient.setQueryData<MessagePages>(['messages', channelId], (old) => {
+          queryClient.setQueryData<MessagePages>(timelineKey, (old) => {
             if (!old || !old.pages || old.pages.length === 0) return old;
 
             // Create deep-ish clones
@@ -397,12 +403,12 @@ export function MessageList({
             readCursorTimeout.current = null;
           }, 250);
         } else {
-          queryClient.invalidateQueries({ queryKey: ['messages', channelId] });
+          queryClient.invalidateQueries({ queryKey });
         }
       } catch (err) {
         seenMessageIdsRef.current.delete(newMsgPartial.id);
         console.error('MessageList: Error handling new message', err);
-        queryClient.invalidateQueries({ queryKey: ['messages', channelId] });
+        queryClient.invalidateQueries({ queryKey });
       }
     };
 
@@ -423,7 +429,7 @@ export function MessageList({
             // Handle deletions
             const deletedId = payload.old.id;
             if (!deletedId) return;
-            queryClient.setQueryData<MessagePages>(['messages', channelId], (old) => {
+            queryClient.setQueryData<MessagePages>(timelineKey, (old) => {
               if (!old?.pages) return old;
               return {
                 ...old,
@@ -436,7 +442,7 @@ export function MessageList({
             // Handle updates (edits)
             const updatedMsg = payload.new;
             if (!updatedMsg.id) return;
-            queryClient.setQueryData<MessagePages>(['messages', channelId], (old) => {
+            queryClient.setQueryData<MessagePages>(timelineKey, (old) => {
               if (!old?.pages) return old;
               return {
                 ...old,
@@ -468,7 +474,7 @@ export function MessageList({
               emoji: newReaction.emoji,
               createdAt: newReaction.createdAt,
             };
-            queryClient.setQueryData<MessagePages>(['messages', channelId], (old) => {
+            queryClient.setQueryData<MessagePages>(timelineKey, (old) => {
               if (!old?.pages) return old;
               return {
                 ...old,
@@ -494,7 +500,7 @@ export function MessageList({
           } else if (payload.eventType === 'DELETE') {
             const oldReaction = payload.old;
             if (!oldReaction.id) return;
-            queryClient.setQueryData<MessagePages>(['messages', channelId], (old) => {
+            queryClient.setQueryData<MessagePages>(timelineKey, (old) => {
               if (!old?.pages) return old;
               return {
                 ...old,
@@ -524,7 +530,7 @@ export function MessageList({
         if (status === 'SUBSCRIBED') {
           if (connectionNeedsResync) {
             connectionNeedsResync = false;
-            void queryClient.invalidateQueries({ queryKey: ['messages', channelId] });
+            void queryClient.invalidateQueries({ queryKey: timelineKey });
           }
           return;
         }
@@ -538,7 +544,7 @@ export function MessageList({
       effectIsActive = false;
       supabase.removeChannel(channel);
     };
-  }, [channelId, queryClient]);
+  }, [channelId, queryClient, timelineKey]);
 
   if (isLoading) {
     return (

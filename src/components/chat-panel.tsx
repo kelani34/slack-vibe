@@ -288,6 +288,8 @@ export function ChatPanel({
 
         <MessageInput
           channelId={channelId}
+          workspaceId={workspaceId}
+          currentUserId={userId}
           currentUser={currentUser}
           placeholder={messagePlaceholder}
           isArchived={isArchived}
@@ -299,9 +301,10 @@ export function ChatPanel({
         <ThreadSidebar
           parentMessageId={activeThreadId!}
           channelId={channelId}
+          workspaceId={workspaceId}
+          currentUserId={userId}
           onClose={handleThreadClose}
           highlightedMessageId={highlightedMessageId}
-          currentUserId={userId}
           userRole={userRole}
           isArchived={isArchived}
           currentUser={currentUser}

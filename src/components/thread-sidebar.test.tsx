@@ -10,6 +10,7 @@ const fixture = vi.hoisted(() => ({
   repliesError: false,
   repliesData: undefined as Array<{ id: string; userId: string; createdAt: string }> | undefined,
   refetchReplies: vi.fn(),
+  queryKeys: [] as unknown[][],
 }));
 
 vi.mock('@/actions/message', () => ({
@@ -34,12 +35,15 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({
-    data: fixture.repliesData,
-    isLoading: fixture.repliesLoading,
-    isError: fixture.repliesError,
-    refetch: fixture.refetchReplies,
-  }),
+  useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
+    fixture.queryKeys.push(queryKey);
+    return {
+      data: fixture.repliesData,
+      isLoading: fixture.repliesLoading,
+      isError: fixture.repliesError,
+      refetch: fixture.refetchReplies,
+    };
+  },
   useQueryClient: () => ({ invalidateQueries: fixture.invalidateQueries }),
 }));
 vi.mock('@/stores/profile-store', () => ({
@@ -53,6 +57,33 @@ beforeEach(() => {
   fixture.repliesLoading = false;
   fixture.repliesError = false;
   fixture.repliesData = undefined;
+  fixture.queryKeys = [];
+});
+
+it('scopes the parent and reply caches to the actor and workspace', () => {
+  render(
+    <ThreadSidebar
+      parentMessageId="root-1"
+      channelId="channel-1"
+      workspaceId="workspace-1"
+      currentUserId="viewer"
+      onClose={vi.fn()}
+    />,
+  );
+
+  expect(fixture.queryKeys).toContainEqual([
+    'message',
+    'viewer',
+    'workspace-1',
+    'root-1',
+  ]);
+  expect(fixture.queryKeys).toContainEqual([
+    'messages',
+    'viewer',
+    'workspace-1',
+    'channel-1',
+    'root-1',
+  ]);
 });
 
 it('shows an accessible reply-shaped skeleton while replies load', () => {
@@ -61,6 +92,7 @@ it('shows an accessible reply-shaped skeleton while replies load', () => {
     <ThreadSidebar
       parentMessageId="root-1"
       channelId="channel-1"
+      workspaceId="workspace-1"
       onClose={vi.fn()}
     />,
   );
@@ -79,6 +111,7 @@ it('offers a retry when the replies request fails', async () => {
     <ThreadSidebar
       parentMessageId="root-1"
       channelId="channel-1"
+      workspaceId="workspace-1"
       onClose={vi.fn()}
     />,
   );
@@ -96,6 +129,7 @@ it('keeps cached replies visible and offers a retry when refresh fails', async (
     <ThreadSidebar
       parentMessageId="root-1"
       channelId="channel-1"
+      workspaceId="workspace-1"
       onClose={vi.fn()}
     />,
   );
@@ -112,6 +146,7 @@ it('refreshes the thread and root timeline when a reply arrives', () => {
     <ThreadSidebar
       parentMessageId="root-1"
       channelId="channel-1"
+      workspaceId="workspace-1"
       onClose={vi.fn()}
     />,
   );
@@ -132,11 +167,11 @@ it('refreshes the thread and root timeline when a reply arrives', () => {
   });
 
   expect(fixture.invalidateQueries).toHaveBeenCalledWith({
-    queryKey: ['messages', 'channel-1', 'root-1'],
+    queryKey: ['messages', 'anonymous', 'workspace-1', 'channel-1', 'root-1'],
     exact: true,
   });
   expect(fixture.invalidateQueries).toHaveBeenCalledWith({
-    queryKey: ['messages', 'channel-1'],
+    queryKey: ['messages', 'anonymous', 'workspace-1', 'channel-1'],
     exact: true,
   });
   expect(fixture.invalidateQueries).toHaveBeenCalledTimes(2);
@@ -147,6 +182,7 @@ it('does not refresh either view for scheduled or deleted reply rows', () => {
     <ThreadSidebar
       parentMessageId="root-1"
       channelId="channel-1"
+      workspaceId="workspace-1"
       onClose={vi.fn()}
     />,
   );
