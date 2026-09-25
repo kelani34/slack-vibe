@@ -152,7 +152,7 @@ Day-one labels: **Core** is the minimum candidate, **Conditional** stays enabled
 | F25 | Drafts: Absent as durable draft capability | Per account/workspace/channel/thread, restore after navigation/reload under explicit policy, clear on confirmed send/logout, no accidental resend | Later | W13 |
 | F26 | Typing indicators: Present, broadcast with timeout | Authorized channel and thread scope, throttle, stale expiry, no offscreen loops, no spoofed identity from arbitrary payload | Conditional | W03, W06 |
 | F27 | Reconnect and multi-tab: Partial; after a reported Supabase interruption the active timeline and sidebar/notification summaries now perform one bounded catch-up | Self events accepted on other tabs, actual network drop/rejoin, duplicate/out-of-order handling and a clear stale/reconnecting label | Core gate for live mode | W06 |
-| F28 | Scheduled messages: Partial, actions, component, workspace page, two worker options | Author-only pending visibility, publish-time permission, claim/retry/dedupe, schedule/edit/cancel races, timezone correctness, notification at delivery | Later; gate existing paths | W07 |
+| F28 | Scheduled messages: Partial; current channel list now keys by actor/workspace/channel/thread, requires current workspace and channel membership, and returns only rendered fields | Author-only pending visibility, publish-time permission, claim/retry/dedupe, schedule/edit/cancel races, timezone correctness, notification at delivery, workspace page query scope | Later; gate existing paths | W05, W07 |
 
 ## Knowledge, files and notifications
 
