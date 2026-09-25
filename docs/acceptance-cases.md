@@ -386,11 +386,11 @@ Owner: W09. Required layers: I,S,E. State: **PARTIAL DEVELOPER-TESTED SLICE / IN
 - **TC-F29-04** — Failed message send retains usable upload state without exposing orphaned objects.
 - **TC-F29-05** — Expired grant, logout and lost membership prevent renewal/finalization.
 - **TC-F29-06** — Orphan cleanup and concurrent finalization never delete a committed attachment; server memory remains bounded.
-- Developer evidence: `tests/integration/upload-access.test.ts` reproduces mismatched PNG and MP4 payloads plus active SVG; the server rejects them before storage access and accepts matching PNG and MP4 prefixes. Supported image/video/audio/PDF types receive a bounded 12-byte prefix check. This is not full decoding or scanning. Private object storage, legacy public URLs, Office document validation, attachment finalization, bounded server transfer and independent QA remain open.
+- Developer evidence: `tests/integration/upload-access.test.ts` rejects mismatched PNG and MP4 payloads plus active SVG before storage, and accepts matching image/media prefixes. Supported image/video/audio/PDF types receive a bounded 12-byte prefix check; this is not full decoding or scanning. The schema now stores optional `storageBucket`/`storagePath` pairs, and `src/actions/attachment.ts` issues 5-minute preview/download grants after current channel-membership and message-visibility checks. `MessageItem` uses those grants for path-bearing objects and preserves legacy URL behavior during migration. New uploads still do not populate these fields, the private bucket is not provisioned/verified, Office validation, finalization, bounded transfer and independent QA remain open.
 
 ### F30: File/image preview/download
 
-Owner: W09, W17. Required layers: I,S,E. State: **PLANNED / NOT RUN**. See [phase mapping](delivery-traceability.md).
+Owner: W09, W17. Required layers: I,S,E. State: **PARTIAL DEVELOPER-TESTED / INDEPENDENT QA NOT RUN**. See [phase mapping](delivery-traceability.md).
 
 - **TC-F30-01** — Current member previews/downloads a private object with an expiring grant.
 - **TC-F30-02** — Expired grant renews only after current-access check.
@@ -398,6 +398,7 @@ Owner: W09, W17. Required layers: I,S,E. State: **PLANNED / NOT RUN**. See [phas
 - **TC-F30-04** — Unsupported/corrupt media shows safe fallback instead of executing active content.
 - **TC-F30-05** — Keyboard/touch close, zoom and download remain usable with focus restoration.
 - **TC-F30-06** — Image decode failure, slow network and orientation changes preserve modal bounds and message scroll.
+- Developer evidence: `tests/integration/attachment-download.test.ts` covers an incomplete locator constraint, anonymous/outsider denial, deleted/future-scheduled message denial, channel-scoped object paths, 5-minute preview/download grants and provider failure handling. `src/components/message-item.test.tsx` covers private URL use, hidden public URL thumbnails, accessible focus, loading, denial/retry and legacy compatibility. Storage provider behavior was mocked; bucket provisioning, expired-link behavior, grant reuse/revocation, live browser/device checks and independent QA remain NOT RUN.
 
 ### F31: Search/filter
 

@@ -129,7 +129,7 @@ Pins are channel-owned references; bookmarks are personal references. Both resol
 
 Scheduling shows the user's effective timezone and a concrete date/time before confirmation. Reject past/invalid times and explain ambiguous daylight-saving times where relevant. Pending content is visible only to its author. Cancellation and publication race against the same locked delivery record. Notifications originate from actual publication.
 
-Files have per-item progress, retry, cancel, name, size, and accessible status. Upload completion does not mean message delivery. A finalized file record remains associated with the send intent so retry does not duplicate bytes. Preview/download always rechecks current channel access.
+Files have per-item progress, retry, cancel, name, size, and accessible status. Upload completion does not mean message delivery. A finalized file record remains associated with the send intent so retry does not duplicate bytes. Preview/download always rechecks current channel access. The current partial private-read path signs a path-bearing attachment only after rechecking channel membership and message visibility; legacy URL-only records keep their existing behavior until migrated. A newly issued 5-minute Supabase URL remains usable until it expires, so revocation prevents later grants but does not revoke a URL already issued.
 
 These complete flows are later work unless their release gates fit day one.
 

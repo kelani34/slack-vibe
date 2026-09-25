@@ -11,6 +11,7 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 interface FilePreviewModalProps {
   url: string | null;
+  downloadUrl?: string;
   name?: string;
   type?: string;
   onClose: () => void;
@@ -18,6 +19,7 @@ interface FilePreviewModalProps {
 
 export function FilePreviewModal({
   url,
+  downloadUrl,
   name,
   type,
   onClose,
@@ -27,6 +29,7 @@ export function FilePreviewModal({
   const isImage =
     type?.startsWith('image/') || url.match(/\.(jpg|jpeg|png|gif|webp)$/i);
   const isPdf = type === 'application/pdf' || url.endsWith('.pdf');
+  const downloadHref = downloadUrl || url;
 
   return (
     <Dialog open={!!url} onOpenChange={() => onClose()}>
@@ -44,7 +47,7 @@ export function FilePreviewModal({
           </div>
           <div className="flex items-center gap-2">
             <a
-              href={url}
+              href={downloadHref}
               download={name || 'download'}
               target="_blank"
               rel="noopener noreferrer"
@@ -84,7 +87,7 @@ export function FilePreviewModal({
                 This file type cannot be previewed directly.
               </p>
               <a
-                href={url}
+                href={downloadHref}
                 download={name || 'download'}
                 target="_blank"
                 rel="noopener noreferrer"

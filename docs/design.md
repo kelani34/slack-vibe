@@ -185,6 +185,10 @@ Actions are available on hover, keyboard focus and touch through one overflow af
 
 One main send action, attachment control, and compact formatting affordance. Keep advanced scheduling under the send menu only when enabled. Show upload state per attachment. Visible error belongs to the failed item, with retry/edit/discard choices. Do not clear the only copy of text before send success. Disabled composition includes a concrete reason such as archived channel or insufficient posting permission.
 
+### Attachments and private previews
+
+Attachment tiles are named keyboard/touch buttons with a visible focus ring and a meaningful active state. A private object reference never renders the legacy URL as an image thumbnail; show a quiet media/file placeholder until the member opens it. While access URLs are being issued, disable attachment opens, announce “Opening file…” and show a reduced-motion-safe spinner. On denial or transient failure, keep the tile available for another attempt and explain the failure through the shared toast language. Use a preview URL for inline content and a separate attachment URL for download. Existing URL-only attachments remain readable during the staged migration. This behavior is developer-tested, but no configured private bucket, live signed URL, expiry/revocation or independent QA evidence exists yet.
+
 ### Navigation
 
 Separate selected, unread and hover states. Unread state combines weight/dot/count with an accessible label. Starred channels do not lose counts because they use a different fetch path. Keyboard navigation should be conventional; implement a roving-tab pattern only where the underlying primitive requires it.
