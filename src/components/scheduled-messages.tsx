@@ -178,6 +178,7 @@ export function ScheduledMessages({
           variant="ghost"
           size="icon"
           className="h-7 w-7 relative"
+          aria-label={`${count} scheduled message${count > 1 ? 's' : ''}`}
           title={`${count} scheduled message${count > 1 ? 's' : ''}`}
         >
           <Clock className="h-4 w-4" />
@@ -218,6 +219,7 @@ export function ScheduledMessages({
                   size="icon"
                   className="h-8 w-8 text-destructive hover:text-destructive"
                   onClick={() => handleCancel(message.id)}
+                  aria-label="Cancel scheduled message"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

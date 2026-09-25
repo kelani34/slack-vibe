@@ -142,6 +142,7 @@ export function ThreadSidebar({
           size="icon"
           className="h-7 w-7"
           onClick={onClose}
+          aria-label="Close thread"
         >
           <X className="size-4" />
         </Button>

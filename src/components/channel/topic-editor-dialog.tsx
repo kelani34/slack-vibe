@@ -121,8 +121,10 @@ export function TopicEditorDialog({
                 >
                   {t}
                   <button
+                    type="button"
                     onClick={() => removeTopic(t)}
-                    className="hover:text-destructive"
+                    aria-label={`Remove topic ${t}`}
+                    className="flex h-11 w-11 items-center justify-center hover:text-destructive sm:h-6 sm:w-6"
                   >
                     <X className="h-3 w-3" />
                   </button>

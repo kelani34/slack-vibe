@@ -218,10 +218,10 @@ export function NotificationList({ onItemClick }: NotificationListProps) {
            </div>
 
            {/* Floating Actions Menu */}
-           <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2">
+           <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity absolute top-2 right-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Notification actions">
                     <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>

@@ -40,6 +40,7 @@ export function StarButton({ channelId, initialStarred }: StarButtonProps) {
       className="h-7 w-7"
       onClick={handleToggle}
       disabled={isPending}
+      aria-label={optimisticStarred ? 'Unstar channel' : 'Star channel'}
       title={optimisticStarred ? 'Unstar channel' : 'Star channel'}
     >
       <Star

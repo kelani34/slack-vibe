@@ -213,6 +213,8 @@ Use the [WCAG 2.2 quick reference](https://www.w3.org/WAI/WCAG22/quickref/) to v
 - Prefer document landmarks and headings. Timeline navigation remains usable without relying on visual animation or hover.
 - Respect reduced-motion preference plus an eventual in-app setting. All functional information remains available when motion is disabled.
 
+The D02 source pass now inventories app-owned icon Buttons and native icon-only buttons with an AST contract, requires accessible names, and gives shared icon Button/compact Toggle variants a 44px compact-screen target floor. Attachment and topic removal also remain visible on keyboard focus and cannot submit their containing form accidentally. Exact production-artifact evidence at 390×844 confirms the composer and eight expanded formatting controls resolve to 44×44px without horizontal clipping. Keyboard sequence/focus return, screen readers, 320px, zoom, software-keyboard occlusion, physical devices and independent QA remain open.
+
 ## Design acceptance and deliverables for implementation
 
 Follow [UI TDD](tdd.md) before implementing each component/flow: tests for labelled actions, state transitions, validation/failure, focus, keyboard/touch and applicable responsive behavior. Pair component assertions with browser/visual tests where real layout matters. Review stable visual baselines intentionally; do not auto-accept screenshot changes. Every interactive app-owned component has direct or containing-feature coverage. Manual design review complements automated evidence and does not substitute for it.

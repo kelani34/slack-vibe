@@ -53,7 +53,7 @@ export function FilePreviewModal({
               <Download className="size-4 mr-2" />
               Download
             </a>
-            <Button variant="ghost" size="icon" onClick={onClose}>
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close preview">
               <X className="size-5" />
             </Button>
           </div>

@@ -173,11 +173,13 @@ export function MessageInput({
                 )}
               </div>
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   removeFile(i);
                 }}
-                className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                aria-label={`Remove attachment ${file.name}`}
+                className="absolute -top-2 -right-2 flex h-11 w-11 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus:opacity-100 md:h-6 md:w-6"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -226,7 +228,8 @@ export function MessageInput({
                 onClick={() => {
                   setFiles((prev) => prev.filter((_, idx) => idx !== i));
                 }}
-                className="absolute top-0 right-0 p-1 bg-black/50 text-white hover:bg-destructive transition-colors rounded-bl-md opacity-0 group-hover:opacity-100 focus:opacity-100"
+                aria-label={`Remove attachment ${file.name}`}
+                className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-bl-md bg-black/50 text-white opacity-0 transition-colors hover:bg-destructive group-hover:opacity-100 focus:opacity-100 md:h-6 md:w-6"
               >
                 <X className="size-3" />
               </button>

@@ -8,16 +8,16 @@ Audited 25 September 2026 against the current working tree. The scan covered 141
 
 | Dimension | Score | Current evidence |
 |---|---:|---|
-| Accessibility | 2/4 | Radix primitives, semantic labels and focus-ring foundations are present; hover-only message actions and several 28px icon controls still need visible keyboard/touch treatment |
+| Accessibility | 3/4 | App-owned icon controls now have source-enforced names, keyboard-visible actions and 44px compact targets through shared Button/Toggle rules; assistive-technology and physical-device acceptance remain open |
 | Performance | 2/4 | Current DM stack motion uses opacity/transform and reduced-motion fallback; route bundle, long-timeline rendering and broad interaction frame budgets remain unmeasured |
-| Responsive design | 2/4 | The live group DM reflowed cleanly at 390×844 with replacement navigation and a usable composer; fixed notification/dialog dimensions and `h-screen` shell ownership remain |
+| Responsive design | 3/4 | The workspace shell uses dynamic viewport height, Activity/channel details are bounded, and DM/composer checks pass at 390×844; remaining overlays, 320px/tablet/zoom/keyboard and device acceptance stay open |
 | Theming | 3/4 | All app-owned state presentation now uses measured light/dark semantic roles; the only excluded literals are third-party SVG selector values in the Recharts adapter, while light-theme visual and independent QA remain open |
 | Anti-patterns | 4/4 | No gradient text, decorative glass, hero-metric dashboard or ornamental page choreography was found in the audited core communication surfaces |
-| **Total** | **13/20** | **Acceptable, with release-significant accessibility, responsive, visual-evidence and state-system work** |
+| **Total** | **15/20** | **Good source foundations, with release-significant device, zoom, visual-evidence, assistive-technology and state-system validation still open** |
 
 ## Anti-pattern verdict
 
-The current product does not read as a generic generated dashboard. The conversation-first shell, restrained surfaces, familiar controls and compact DM identity are appropriate for a daily communication tool. The risk is inconsistency: raw Tailwind palette colors, fixed-size overlays, undersized controls and mixed loading treatments can make otherwise familiar surfaces feel unfinished.
+The current product does not read as a generic generated dashboard. The conversation-first shell, restrained surfaces, familiar controls and compact DM identity are appropriate for a daily communication tool. The remaining risk is inconsistency in loading/state treatments and the overlays, viewport combinations and assistive/device journeys that have not yet received implementation or acceptance evidence.
 
 ## Priority findings
 
@@ -36,12 +36,13 @@ The current product does not read as a generic generated dashboard. The conversa
 - **Original impact:** A 500px activity popover and 600px fixed-height dialog could clip or crowd small viewports, enlarged text and browser chrome.
 - **Implemented slice:** Activity now uses viewport-bounded width/height and opens above its trigger in compact navigation; channel details uses dynamic-viewport width and height bounds plus an accessible description. Component regressions cover both surfaces, and B14 verifies them at 390×844. A dedicated mobile route/sheet decision, 320px, tablet split view, 200% text, keyboard occlusion and independent QA remain open.
 
-### P1: Icon control naming and touch size — profile/message slice implemented
+### P1: Icon control naming and touch size — source implementation complete, device QA open
 
 - **Location:** `src/components/profile-sidebar.tsx:135`, `src/components/profile-sidebar.tsx:147`, `src/components/profile-sidebar.tsx:175`, plus the 28px message action controls
 - **Category:** Accessibility and mobile
 - **Original impact:** Small controls were harder to acquire on touch and profile icon controls had no explicit accessible names.
-- **Implemented slice:** Profile Back, Edit, More and Close controls now have explicit names and 44px compact hit areas; the persistent message overflow uses the same compact target. Component regressions cover Back, More, Close and the message overflow. Remaining icon controls still require the route-wide inventory, browser focus/touch checks and independent QA. The 44px design target is a product preference; the applicable WCAG 2.2 minimum and exceptions still govern acceptance.
+- **Implemented source:** A TypeScript-AST contract inventories every app-owned icon `Button` and native icon-only `button`, rejecting controls without an explicit or rendered accessible name. Shared icon Button variants and the compact Toggle variant enforce a 44px minimum at compact breakpoints even when a consumer keeps a smaller visual icon. The repair names thread/preview/profile, notification, composer, scheduling and star controls; attachment/topic removal is keyboard-visible, explicitly named and non-submitting. B18 verifies all composer and formatting controls at 44×44px in the exact 390×844 production artifact without horizontal clipping.
+- **Remaining evidence:** Run real keyboard order/focus-return, VoiceOver/TalkBack or equivalent screen-reader output, switch/voice-control targeting, 320px/zoom/keyboard-open and physical-device QA. The 44px design target is a product preference; the applicable WCAG 2.2 minimum and exceptions still govern acceptance.
 
 ### P1: Application states bypass semantic design tokens — source implementation complete, visual/QA evidence open
 
@@ -76,7 +77,7 @@ The current product does not read as a generic generated dashboard. The conversa
 
 | Pattern | Current strength | Required states still to close |
 |---|---|---|
-| Buttons and form primitives | Shared variants, focus rings, disabled styles | Consistent loading/error naming, touch sizing, contrast audit |
+| Buttons and form primitives | Shared variants, focus rings, source-enforced icon names and compact touch sizing | Consistent loading/error announcements, keyboard/assistive-device evidence, contrast audit |
 | Conversation and message row | Dense readable layout, pending/error logic, deep-link highlight | Visible keyboard/touch actions, stable long-history visual evidence |
 | Composer | Rich editor, attachments, formatting and DM placeholder contract | Keyboard/IME matrix, safe-area/occlusion, per-item failure and upload progress |
 | Direct-message identity | One-to-one peer avatar and group stack across sidebar/inbox/header | Large-group overflow rule, presence/status semantics, call state overlays |
@@ -106,7 +107,7 @@ No feature family is exempt from the shared design, mobile, motion, speed and ac
 ## Implementation order
 
 1. **D01, token roles — source implementation complete:** app-owned state colors use semantic roles with source-wide raw-color rejection and light/dark contrast fixtures; light visual, forced-colors and independent-QA evidence remain.
-2. **D02, interaction accessibility — in progress:** the message/profile priority slice is implemented with red/green component regressions; route-wide controls and browser/device/independent-QA evidence remain.
+2. **D02, interaction accessibility — source implementation complete:** app-owned icon controls have source-wide naming and shared compact-target contracts, plus exact-artifact phone evidence; keyboard, assistive-technology, physical-device and independent-QA evidence remain.
 3. **D03, adaptive surfaces — in progress:** activity, channel details and workspace viewport ownership are bounded with red/green regressions and a 390×844 browser smoke; remaining overlays, 320px/tablet/zoom and device evidence stay open.
 4. **D04, state language:** standardize skeleton, empty, progress, error, denied, archived and revoked states.
 5. **D05, motion foundation:** implement shared M01–M30 tokens and interruption/reduced-motion rules before expanding animation volume.

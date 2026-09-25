@@ -342,6 +342,7 @@ export function RichTextEditor({
               size="icon"
               className={cn('h-7 w-7', showToolbar && 'bg-muted')}
               onClick={() => setShowToolbar(!showToolbar)}
+              aria-label={showToolbar ? 'Hide formatting' : 'Show formatting'}
               title={showToolbar ? 'Hide formatting' : 'Show formatting'}
             >
               <Type
@@ -358,6 +359,7 @@ export function RichTextEditor({
                 size="icon"
                 className="h-7 w-7"
                 onClick={onAttachClick}
+                aria-label="Attach file"
                 title="Attach file"
               >
                 <Paperclip className="h-4 w-4" />
@@ -381,6 +383,7 @@ export function RichTextEditor({
                   className="h-7 w-7 rounded-r-none"
                   onClick={() => handleSubmit()}
                   disabled={disabled || (!hasContent && !canSend)}
+                  aria-label="Send message"
                 >
                   <Send className="h-3.5 w-3.5" />
                 </Button>
@@ -390,6 +393,7 @@ export function RichTextEditor({
                       size="icon"
                       className="h-7 w-5 rounded-l-none border-l border-primary-foreground/20 px-0"
                       disabled={disabled || (!hasContent && !canSend)}
+                      aria-label="Schedule send"
                     >
                       <ChevronDown className="h-3 w-3" />
                     </Button>
