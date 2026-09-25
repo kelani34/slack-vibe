@@ -4,7 +4,7 @@
 
 ## Status, oracle and fixtures
 
-**655 concrete scenarios are catalogued; independent QA is PLANNED / NOT RUN.** They cover 107 executable F requirements; F48 is the historical umbrella mapped to detailed requirements, not a dummy executable feature. This is the baseline six cases per executable requirement (642), six additional send/retry cases under F17, and additional group-DM intent-retry, forwarding destination-state, lazy profile-query, shared-motion-token, button-press-feedback, same-tab logout-cache and actor-switch cache cases. A small subset now has developer TDD evidence, identified under the relevant features below; that does not count as independent QA or mean every acceptance dimension ran. This catalogue is not a guarantee that every unknown defect is enumerated.
+**656 concrete scenarios are catalogued; independent QA is PLANNED / NOT RUN.** They cover 107 executable F requirements; F48 is the historical umbrella mapped to detailed requirements, not a dummy executable feature. This is the baseline six cases per executable requirement (642), six additional send/retry cases under F17, and additional group-DM intent-retry, forwarding destination-state, lazy profile-query, shared-motion-token, button-press-feedback, same-tab logout-cache, actor-switch cache and workspace-bound profile-cache cases. A small subset now has developer TDD evidence, identified under the relevant features below; that does not count as independent QA or mean every acceptance dimension ran. This catalogue is not a guarantee that every unknown defect is enumerated.
 
 Every scenario has a stable ID in the `TC-Fnn-nn` sequence (the six-case baseline may be extended with additional justified cases). When a scenario contains multiple outcomes or environments, split it into named assertions/data rows (`.a`, `.b`, etc.) with actual fixture/step/expected-result evidence. Six is an organizing convention, not a cap. Apply the universal cases below to **each operation** in a feature; feature-specific statements and the owning detailed spec supply its oracle. No "covered by happy path" shortcut for a different role, API, route or state.
 
@@ -465,6 +465,8 @@ Owner: W13. Required layers: I,C,E. State: **PLANNED / NOT RUN**. See [phase map
 - **TC-F36-04** — Upload failure leaves prior avatar and profile intact.
 - **TC-F36-05** — Profile field visibility respects workspace/directory policy.
 - **TC-F36-06** — Concurrent profile edits reconcile or report conflict and stay usable on phone keyboard.
+- **TC-F36-07** — A member profile opened in another workspace cannot reuse a profile response cached under a different workspace authorization scope.
+- Developer evidence: `src/components/profile-sidebar.test.tsx` proves the member-profile Query key includes the authorizing workspace ID. Cross-workspace permission revocation and independent QA remain NOT RUN.
 
 ### F37: Hide/unhide users
 
