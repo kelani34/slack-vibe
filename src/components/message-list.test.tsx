@@ -20,6 +20,7 @@ const fixture = vi.hoisted(() => ({
   cancelQueries: vi.fn().mockResolvedValue(undefined),
   invalidateQueries: vi.fn(),
   queryKeys: [] as unknown[][],
+  queryEnabled: [] as boolean[],
   queryClient: {
     getQueryData: (...args: unknown[]) => fixture.getQueryData(...args),
     invalidateQueries: (...args: unknown[]) => fixture.invalidateQueries(...args),
@@ -64,8 +65,9 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 vi.mock('@tanstack/react-query', () => ({
-  useInfiniteQuery: ({ queryKey }: { queryKey: unknown[] }) => {
+  useInfiniteQuery: ({ queryKey, enabled }: { queryKey: unknown[]; enabled?: boolean }) => {
     fixture.queryKeys.push(queryKey);
+    fixture.queryEnabled.push(enabled ?? true);
     return {
       data: fixture.queryData,
       fetchNextPage: vi.fn(),
@@ -85,12 +87,24 @@ beforeEach(() => {
   fixture.handlers = [];
   fixture.subscriptionStatuses = [];
   fixture.queryKeys = [];
+  fixture.queryEnabled = [];
   fixture.queryData = { pages: [[]], pageParams: [undefined] };
   fixture.getQueryData.mockImplementation(() => fixture.queryData);
   fixture.setQueryData.mockImplementation((_key, value) => {
     fixture.queryData = value;
   });
   fixture.getMessageContext.mockResolvedValue(null);
+});
+
+it('does not fetch timeline data until the viewer identity is known', () => {
+  render(
+    <MessageList
+      channelId="channel-1"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  expect(fixture.queryEnabled).toEqual([false]);
 });
 
 it('scopes timeline cache to the current actor, workspace, and channel', () => {
@@ -108,6 +122,7 @@ it('scopes timeline cache to the current actor, workspace, and channel', () => {
     'workspace-1',
     'channel-1',
   ]);
+  expect(fixture.queryEnabled).toEqual([true]);
 });
 
 it('hydrates an incoming message only through the focused conversation subscription', async () => {

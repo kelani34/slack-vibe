@@ -127,7 +127,7 @@ export function MessageList({
         // Cursor is the ID of the oldest message in the batch (first item because we reversed it in action)
         return lastPage[0]?.id;
       },
-      enabled: !providedMessages, // Only fetch if we don't have static messages
+      enabled: !providedMessages && !!currentUserId, // Wait for the viewer before fetching private history
     });
 
   // Flatten and reverse pages to get messages in chronological order

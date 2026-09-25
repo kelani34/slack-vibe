@@ -190,3 +190,5 @@ Use [test-first optimization](tdd.md): define a failing query-count/payload/life
 Baseline → authorization/correctness → unread query fix → remove refresh amplification → initial hydration → bundle/row measurement → conditional indexing/virtualization/search/upload changes. Run the same fixture after each change, keep raw traces, and report what became faster and what did not. One-day priorities are the first two performance changes only after the security gate passes.
 
 See [testing](testing.md) for fixture sizes and pass/fail protocol, [timeline](timeline.md) for timeboxes, and [operations](operations.md) for field telemetry.
+
+The W05 client cache audit also gates private root-history and thread queries until actor identity is known, avoiding requests under fallback identities. This reduces premature query work but has not been measured as a latency improvement; record request/query counts and cold/warm timing before making a speed claim.
