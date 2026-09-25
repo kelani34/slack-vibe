@@ -172,7 +172,9 @@ it('loads a bounded old-message context, scrolls to it, and returns to the lates
 
   expect(await screen.findByText('Context target message')).toBeInTheDocument();
   expect(fixture.getMessageContext).toHaveBeenCalledWith('target-message', 'channel-1');
-  expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+  await waitFor(() => {
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+  });
   fireEvent.click(screen.getByRole('button', { name: 'Return to latest' }));
   expect(fixture.setQueryData).toHaveBeenLastCalledWith(
     ['messages', 'channel-1'],
