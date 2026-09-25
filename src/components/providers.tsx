@@ -6,6 +6,7 @@ import { ThemeProvider as NextThemesProvider } from 'next-themes';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { useState } from 'react';
 import { Toaster } from '@/components/ui/sonner';
+import { SessionCacheBoundary } from '@/components/session-cache-boundary';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -28,6 +29,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     >
       <SessionProvider>
         <QueryClientProvider client={queryClient}>
+          <SessionCacheBoundary />
           <NuqsAdapter>
             {children}
             <Toaster />

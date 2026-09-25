@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { clearDraftsForUser } from '@/lib/draft-storage';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -39,6 +40,7 @@ export function NavUser({
   };
 }) {
   const { isMobile } = useSidebar();
+  const queryClient = useQueryClient();
 
   return (
     <SidebarMenu>
@@ -103,6 +105,7 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={() => {
+                queryClient.clear();
                 clearDraftsForUser(user.id);
                 void signOut({ redirectTo: '/login' });
               }}
