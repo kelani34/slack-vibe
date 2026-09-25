@@ -57,6 +57,43 @@ describe('file upload access boundaries (A01 / A05)', () => {
     expect(await uploadFile(formFor(channel.id, oversized))).toEqual({ error: 'File is too large' });
   });
 
+  it('rejects file bytes that do not match the declared image MIME type', async () => {
+    const { channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+
+    const result = await uploadFile(
+      formFor(channel.id, new File(['not a png'], 'image.png', { type: 'image/png' })),
+    );
+
+    expect(result).toEqual({ error: 'File content does not match its declared type' });
+    expect(createAdminClient).not.toHaveBeenCalled();
+  });
+
+  it('accepts a PNG whose leading bytes match the declared MIME type', async () => {
+    const { channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    const pngHeader = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]);
+
+    const result = await uploadFile(
+      formFor(channel.id, new File([pngHeader], 'image.png', { type: 'image/png' })),
+    );
+
+    expect(result).toMatchObject({ name: 'image.png', type: 'image/png' });
+    expect(createAdminClient).toHaveBeenCalledOnce();
+  });
+
+  it('rejects SVG uploads because active document content is not an image allowlist entry', async () => {
+    const { channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+
+    const result = await uploadFile(
+      formFor(channel.id, new File(['<svg onload="alert(1)"></svg>'], 'image.svg', { type: 'image/svg+xml' })),
+    );
+
+    expect(result).toEqual({ error: 'File type is not supported' });
+    expect(createAdminClient).not.toHaveBeenCalled();
+  });
+
   it('uploads an allowed file only after channel membership is verified', async () => {
     const { channel } = await fixture();
     await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });

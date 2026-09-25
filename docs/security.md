@@ -113,6 +113,8 @@ For the one-day candidate, if this proof fails, disable insecure subscriptions a
 
 Private-channel files must not be placed behind permanent public URLs. Private object keys are scoped to workspace/channel and upload intent. A server authorizes a short-lived upload or download grant and validates finalized object ownership. The service role bypasses ordinary policies and is therefore a server-only trust boundary; Supabase documents this in [Storage access control](https://supabase.com/docs/guides/storage/security/access-control).
 
+**Current W09 evidence:** the server now rejects SVG and checks the leading signature bytes for supported raster image types before uploading; red/green integration cases cover a PNG mismatch, an SVG payload and a matching PNG header. This is only a prefix check for image uploads. The bucket still returns permanent public URLs, the browser profile-avatar upload still bypasses the server action, other media/document bytes are not inspected, and the server buffers the complete file. A06 remains open.
+
 Declared MIME/name/size are untrusted. Validate object bytes/metadata and prevent executable inline previews. Use image/document allowlists, safe download disposition, and limits before allocating whole buffers. Broader arbitrary-file sharing requires a scanning/quarantine decision. Log object IDs and error categories rather than private file contents or signed URLs.
 
 ## Abuse, privacy and retention

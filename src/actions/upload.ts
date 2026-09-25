@@ -8,12 +8,42 @@ import { randomUUID } from 'node:crypto';
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 function isAllowedFileType(type: string) {
+  if (type === 'image/svg+xml') return false;
   return type.startsWith('image/') || type.startsWith('video/') || type.startsWith('audio/') || [
     'application/pdf',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'text/plain',
   ].includes(type);
+}
+
+async function hasSupportedImageSignature(file: File) {
+  const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const startsWith = (...signature: number[]) =>
+    signature.every((byte, index) => bytes[index] === byte);
+
+  switch (file.type) {
+    case 'image/png':
+      return startsWith(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
+    case 'image/jpeg':
+      return startsWith(0xff, 0xd8, 0xff);
+    case 'image/gif':
+      return startsWith(0x47, 0x49, 0x46, 0x38) && (bytes[4] === 0x37 || bytes[4] === 0x39) && bytes[5] === 0x61;
+    case 'image/webp':
+      return startsWith(0x52, 0x49, 0x46, 0x46) && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+    case 'image/avif':
+      return bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70 &&
+        ((bytes[8] === 0x61 && bytes[9] === 0x76 && bytes[10] === 0x69 && bytes[11] === 0x66) ||
+          (bytes[8] === 0x61 && bytes[9] === 0x76 && bytes[10] === 0x69 && bytes[11] === 0x73));
+    case 'image/bmp':
+      return startsWith(0x42, 0x4d);
+    case 'image/tiff':
+      return startsWith(0x49, 0x49, 0x2a, 0x00) || startsWith(0x4d, 0x4d, 0x00, 0x2a);
+    case 'image/x-icon':
+      return startsWith(0x00, 0x00, 0x01, 0x00);
+    default:
+      return false;
+  }
 }
 
 export async function uploadFile(formData: FormData) {
@@ -35,6 +65,9 @@ export async function uploadFile(formData: FormData) {
   }
   if (!isAllowedFileType(file.type)) {
     return { error: 'File type is not supported' };
+  }
+  if (file.type.startsWith('image/') && !(await hasSupportedImageSignature(file))) {
+    return { error: 'File content does not match its declared type' };
   }
 
   const member = await prisma.channelMember.findUnique({

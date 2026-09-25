@@ -378,7 +378,7 @@ Owner: W07. Required layers: U,I,E. State: **PLANNED / NOT RUN**. See [phase map
 
 ### F29: Attachment upload
 
-Owner: W09. Required layers: I,S,E. State: **PLANNED / NOT RUN**. See [phase mapping](delivery-traceability.md).
+Owner: W09. Required layers: I,S,E. State: **PARTIAL DEVELOPER-TESTED SLICE / INDEPENDENT QA NOT RUN**. See [phase mapping](delivery-traceability.md).
 
 - **TC-F29-01** — Authorized upload intent accepts allowed bounded media and finalizes for its intended owner/message.
 - **TC-F29-02** — Wrong tenant, object ID, MIME, size or finalization target is rejected.
@@ -386,6 +386,7 @@ Owner: W09. Required layers: I,S,E. State: **PLANNED / NOT RUN**. See [phase map
 - **TC-F29-04** — Failed message send retains usable upload state without exposing orphaned objects.
 - **TC-F29-05** — Expired grant, logout and lost membership prevent renewal/finalization.
 - **TC-F29-06** — Orphan cleanup and concurrent finalization never delete a committed attachment; server memory remains bounded.
+- Developer evidence: `tests/integration/upload-access.test.ts` first reproduced an accepted text payload declared as PNG and an accepted active SVG upload; the server now rejects those cases before storage access and accepts a PNG signature. This is only image-signature prefix validation. Private object storage, legacy public URLs, full format parsing, attachment finalization, bounded server transfer and independent QA remain open.
 
 ### F30: File/image preview/download
 

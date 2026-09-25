@@ -10,7 +10,7 @@ The current implementation has the `DIRECT` enum migration, a durable pair-key c
 
 ## Additional collaboration domain contracts
 
-[F69–F78 system specifications](collaboration-features.md) extend this design with polls/ballots, versioned announcements/acknowledgements, workspace emoji/groups, channel tasks/notes and personal keyword/search records. Voice uses the existing private attachment model; fixed templates use versioned application configuration. That document owns proposed fields, transactional invariants, states, events and per-feature failure behavior. No new datastore or transport is proposed.
+[F69–F78 system specifications](collaboration-features.md) extend this design with polls/ballots, versioned announcements/acknowledgements, workspace emoji/groups, channel tasks/notes and personal keyword/search records. Voice notes will use the planned private attachment lifecycle only after W09 closes; current attachment URLs are public. Fixed templates use versioned application configuration. That document owns proposed fields, transactional invariants, states, events and per-feature failure behavior. No new datastore or transport is proposed.
 
 These are source-channel-scoped features: a task, ballot, note revision or acknowledgement lookup must authorize its parent, not only its supplied ID. Publication expands group recipients and matches keywords after the canonical message is durable; retries deduplicate notification intent. Poll close/vote, note save/version and announcement edit/acknowledgement are explicit concurrency boundaries. Rollback preserves their data and disables affected writes independently.
 
