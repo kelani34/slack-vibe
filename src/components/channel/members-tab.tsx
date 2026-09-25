@@ -56,7 +56,7 @@ export function MembersTab({
     isError: membersError,
     refetch: refetchMembers,
   } = useQuery({
-    queryKey: ['channel-members', channelId],
+    queryKey: ['channel-members', currentUserId, workspaceId, channelId],
     queryFn: () => getChannelMembers(channelId),
   });
 
@@ -65,7 +65,7 @@ export function MembersTab({
     isError: availableMembersError,
     refetch: refetchAvailableMembers,
   } = useQuery({
-    queryKey: ['available-members', channelId, workspaceId],
+    queryKey: ['available-members', currentUserId, workspaceId, channelId],
     queryFn: () => getWorkspaceMembersNotInChannel(workspaceId, channelId),
     enabled: showAddMembers,
   });
@@ -99,10 +99,10 @@ export function MembersTab({
     } else {
       toast.success('Member removed');
       queryClient.invalidateQueries({
-        queryKey: ['channel-members', channelId],
+        queryKey: ['channel-members', currentUserId, workspaceId, channelId],
       });
       queryClient.invalidateQueries({
-        queryKey: ['available-members', channelId, workspaceId],
+        queryKey: ['available-members', currentUserId, workspaceId, channelId],
       });
     }
   }
@@ -114,10 +114,10 @@ export function MembersTab({
     } else {
       toast.success('Member added');
       queryClient.invalidateQueries({
-        queryKey: ['channel-members', channelId],
+        queryKey: ['channel-members', currentUserId, workspaceId, channelId],
       });
       queryClient.invalidateQueries({
-        queryKey: ['available-members', channelId, workspaceId],
+        queryKey: ['available-members', currentUserId, workspaceId, channelId],
       });
       setShowAddMembers(false);
     }
