@@ -8,6 +8,7 @@ const fixture = vi.hoisted(() => ({
   push: vi.fn(),
   refresh: vi.fn(),
   getUserProfile: vi.fn(),
+  profileQueryKey: [] as string[],
   getOrCreateDirectMessage: vi.fn(),
   profileLoading: false,
   profileError: false,
@@ -31,12 +32,15 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: fixture.push, refresh: fixture.refresh }),
 }));
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({
-    data: fixture.profileMissing ? null : fixture.profile,
-    isLoading: fixture.profileLoading,
-    isError: fixture.profileError,
-    refetch: fixture.refetchProfile,
-  }),
+  useQuery: ({ queryKey }: { queryKey: string[] }) => {
+    fixture.profileQueryKey = queryKey;
+    return {
+      data: fixture.profileMissing ? null : fixture.profile,
+      isLoading: fixture.profileLoading,
+      isError: fixture.profileError,
+      refetch: fixture.refetchProfile,
+    };
+  },
 }));
 vi.mock('@/stores/profile-store', () => ({
   useProfileStore: (select: (state: { activeProfileUserId: string; setActiveProfile: typeof fixture.setActiveProfile }) => unknown) =>
@@ -54,10 +58,23 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  fixture.profileQueryKey = [];
   fixture.profileLoading = false;
   fixture.profileError = false;
   fixture.profileMissing = false;
   fixture.getOrCreateDirectMessage.mockResolvedValue({ success: true, channelId: 'direct-1' });
+});
+
+it('scopes cached member profiles to the workspace that authorized the read', () => {
+  render(
+    <ProfileSidebar
+      workspaceSlug="acme"
+      workspaceId="workspace-1"
+      currentUserId="current"
+    />,
+  );
+
+  expect(fixture.profileQueryKey).toEqual(['user-profile', 'peer', 'workspace-1']);
 });
 
 it('offers a retry when the profile request fails without implying the user is missing', async () => {

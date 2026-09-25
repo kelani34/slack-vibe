@@ -44,7 +44,7 @@ An admin safety console manages bounded text/link/mention rules, join-rate alert
 
 Slow mode stores a server-side minimum interval per resource and subject, applying to topics/replies/forwarding/bot messages according to an explicit published policy. Retries of the same accepted mutation do not consume another interval. Lockdown temporarily denies new posting/joining, with expiry, reason, allowed moderator capabilities and auditable restore. Do not destroy messages to handle a traffic spike. Rate limits are separate from product slow mode and also cover invitations, call ringing and media tokens.
 
-Test publication and rule-edit races, edit-based evasion, encoded links, bulk mentions, cross-tab bypass, duplicate sends, moderator exemptions, expiry and restoration. Keep moderation evidence access and retention separate from ordinary analytics. [Discord AutoMod](https://support.discord.com/hc/en-us/articles/4421269296555-AutoMod-FAQ) demonstrates the relevant product category; this app's rule engine, failure policy and evidence model are proposed here.
+Test publication and rule-edit races, edit-based evasion, encoded links, bulk mentions, cross-tab bypass, duplicate sends, moderator exemptions, expiry and restoration. Keep moderation evidence access and retention separate from ordinary analytics. [Discord AutoMod](https://support.discord.com/hc/en-us/articles/4421269296565-AutoMod-FAQ) demonstrates the relevant product category; this app's rule engine, failure policy and evidence model are proposed here.
 
 ## F101 workflows, F102 app directory and F103 commands/webhooks
 
