@@ -39,6 +39,7 @@ vi.mock('@/stores/notification-store', () => ({
     { getState: () => ({ fetchNotifications: fixture.fetchNotifications }) },
   ),
 }));
+vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => true }));
 
 vi.mock('@/components/ui/sidebar', () => {
   const Container = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
@@ -58,7 +59,9 @@ vi.mock('@/components/ui/sidebar', () => {
 });
 vi.mock('@/components/ui/popover', () => ({
   Popover: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  PopoverContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PopoverContent: ({ children, className, side }: { children: React.ReactNode; className?: string; side?: string }) => (
+    <div data-testid="activity-popover" data-side={side} className={className}>{children}</div>
+  ),
   PopoverTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('@/components/nav-channels', () => ({ NavChannels: () => null }));
@@ -119,4 +122,23 @@ it('links to the workspace unread inbox with the current unread total', () => {
   );
 
   expect(view.getByRole('link', { name: /Unread 4/ })).toHaveAttribute('href', '/acme/unreads');
+});
+
+it('bounds the activity surface to the current viewport', () => {
+  const view = render(
+    <AppSidebar
+      workspaces={[]}
+      currentWorkspace={{ id: 'workspace-1', slug: 'acme', name: 'Acme' } as never}
+      channels={[]}
+      starredChannels={[]}
+      user={{ id: 'viewer', name: 'Viewer', email: 'viewer@example.test', avatar: '' }}
+    />,
+  );
+
+  expect(view.getByTestId('activity-popover')).toHaveClass(
+    'w-[calc(100vw-2rem)]',
+    'max-w-[500px]',
+    'max-h-[calc(100dvh-2rem)]',
+  );
+  expect(view.getByTestId('activity-popover')).toHaveAttribute('data-side', 'top');
 });

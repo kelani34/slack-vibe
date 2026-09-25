@@ -29,12 +29,12 @@ The current product does not read as a generic generated dashboard. The conversa
 - **Standard:** WCAG 2.1.1 Keyboard and 2.4.7 Focus Visible.
 - **Implemented slice:** The toolbar now has an explicit accessible name, reveals through `focus-within`, stays visible on compact layouts, exposes one visually quiet 44px overflow control, and moves reaction plus secondary compact actions into its menu. Component regression evidence covers the semantic toolbar, focus-visible class contract, compact visibility and target sizing; B13 verifies the menu and nested reaction picker at 390×844. Browser keyboard traversal, screen-reader output and physical touch-device QA remain open.
 
-### P1: Activity and channel-detail surfaces use fixed desktop dimensions
+### P1: Activity and channel-detail dimensions — first adaptive slice implemented
 
 - **Location:** `src/components/app-sidebar.tsx:355`, `src/components/channel/channel-details-dialog.tsx:46`
 - **Category:** Responsive design
-- **Impact:** A 500px activity popover and 600px fixed-height dialog can clip or crowd small viewports, enlarged text and browser chrome.
-- **Required resolution:** Use viewport-bounded width/height tokens and the mobile replacement sheet/page contract. Test 320px, 390px, tablet split view and 200% text.
+- **Original impact:** A 500px activity popover and 600px fixed-height dialog could clip or crowd small viewports, enlarged text and browser chrome.
+- **Implemented slice:** Activity now uses viewport-bounded width/height and opens above its trigger in compact navigation; channel details uses dynamic-viewport width and height bounds plus an accessible description. Component regressions cover both surfaces, and B14 verifies them at 390×844. A dedicated mobile route/sheet decision, 320px, tablet split view, 200% text, keyboard occlusion and independent QA remain open.
 
 ### P1: Icon control naming and touch size — profile/message slice implemented
 
@@ -57,12 +57,12 @@ The current product does not read as a generic generated dashboard. The conversa
 - **Impact:** Layout can jump and users receive little indication of what will appear.
 - **Required resolution:** Use surface-shaped skeletons for initial content, compact in-place progress for actions, and retained content for background refresh. Do not add artificial delay or route entrance animation.
 
-### P2: Shell height uses the legacy viewport unit
+### P2: Shell height uses the dynamic viewport — implementation complete, device QA open
 
 - **Location:** `src/app/(main)/[workspaceSlug]/layout.tsx:63`
 - **Category:** Mobile responsive design
-- **Impact:** `h-screen` can disagree with dynamic mobile browser chrome and keyboard height.
-- **Required resolution:** Adopt the documented dynamic viewport and safe-area contract, then test keyboard-open composition on actual iOS and Android browsers.
+- **Original impact:** `h-screen` could disagree with dynamic mobile browser chrome and keyboard height.
+- **Implemented slice:** The workspace shell now owns `h-dvh min-h-0`, with a component regression that rejects `h-screen`. Keyboard-open composition and safe-area behavior still require actual iOS/Android evidence and independent QA.
 
 ### P2: Motion coverage is narrow compared with the specification
 
@@ -106,7 +106,7 @@ No feature family is exempt from the shared design, mobile, motion, speed and ac
 
 1. **D01, token roles:** replace state-bearing raw colors with reviewed semantic roles and contrast fixtures.
 2. **D02, interaction accessibility — in progress:** the message/profile priority slice is implemented with red/green component regressions; route-wide controls and browser/device/independent-QA evidence remain.
-3. **D03, adaptive surfaces:** replace fixed activity/dialog geometry and legacy viewport ownership with bounded desktop and mobile patterns.
+3. **D03, adaptive surfaces — in progress:** activity, channel details and workspace viewport ownership are bounded with red/green regressions and a 390×844 browser smoke; remaining overlays, 320px/tablet/zoom and device evidence stay open.
 4. **D04, state language:** standardize skeleton, empty, progress, error, denied, archived and revoked states.
 5. **D05, motion foundation:** implement shared M01–M30 tokens and interruption/reduced-motion rules before expanding animation volume.
 6. **D06, route evidence:** capture desktop, phone and tablet references for each enabled route family and link the artifacts to the QA ledger.

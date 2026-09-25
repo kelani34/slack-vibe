@@ -60,7 +60,7 @@ export default async function WorkspaceLayout({
         starredChannels={starredChannels}
         user={user}
       />
-      <SidebarInset className="h-screen">
+      <SidebarInset className="h-dvh min-h-0">
         <main className="flex flex-1 flex-col h-full overflow-hidden">
           <header className="flex h-12 shrink-0 items-center border-b px-2 md:hidden">
             <SidebarTrigger />

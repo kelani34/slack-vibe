@@ -30,6 +30,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { unreadCountAfterMessage } from '@/lib/channel-unread';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // ... (imports)
 
@@ -78,6 +79,7 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const router = useRouter();
   const params = useParams();
+  const isMobile = useIsMobile();
   const currentChannelId = params?.channelId as string | undefined;
   const { isOpen, unreadCount } = useNotificationStore();
   const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
@@ -352,11 +354,15 @@ export function AppSidebar({
                         )}
                       </SidebarMenuButton>
                     </PopoverTrigger>
-                    <PopoverContent side="right" align="start" className="w-[500px] p-0">
+                    <PopoverContent
+                      side={isMobile ? 'top' : 'right'}
+                      align="start"
+                      className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[500px] overflow-hidden p-0"
+                    >
                       <div className="p-4 border-b">
                         <h4 className="font-medium text-sm">Notifications</h4>
                       </div>
-                      <div className="max-h-[500px] overflow-y-auto p-2">
+                      <div className="max-h-[min(500px,calc(100dvh-7rem))] overflow-y-auto p-2">
                         <NotificationList onItemClick={() => setIsPopoverOpen(false)} />
                       </div>
                     </PopoverContent>

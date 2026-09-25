@@ -39,4 +39,4 @@ npm run build
 
 ## Current evidence boundary
 
-Local unit, component and integration checks, typecheck, lint and a production build have passed for the current working candidate. GitHub Actions run [36122872110](https://github.com/kelani34/slack-vibe/actions/runs/36122872110) passed against baseline commit `e4d07b8`; hosted evidence remains commit-specific, and the independent QA ledger remains NOT RUN. See [browser evidence](docs/browser-assessment.md), [testing](docs/testing.md) and [the delivery ledger](docs/delivery-plan.md) for exact evidence and open gates.
+Local unit, component and integration checks, typecheck, lint and a production build have passed for the current working candidate. GitHub Actions run [36124016907](https://github.com/kelani34/slack-vibe/actions/runs/36124016907) passed against current pushed commit `52345d1`; hosted evidence remains commit-specific, and the independent QA ledger remains NOT RUN. See [browser evidence](docs/browser-assessment.md), [testing](docs/testing.md) and [the delivery ledger](docs/delivery-plan.md) for exact evidence and open gates.
