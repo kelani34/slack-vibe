@@ -542,7 +542,7 @@ Owner: W05, W08, W14. Required layers: I,E,Q. State: **PLANNED / NOT RUN**. See 
 
 - **TC-F43-01** — Cold and warm load measurements use the same fixture and separate cache state.
 - **TC-F43-02** — Unread/search/history queries meet bounded request/query/page budgets with correct outputs.
-- **TC-F43-03** — Actor/workspace cache keys and permission invalidation prevent stale private reuse.
+- **TC-F43-03** — Actor/workspace cache keys scope profile and channel-member projections; permission invalidation prevents stale private reuse.
 - **TC-F43-04** — Heavy editor/media routes load on demand without delaying required interaction.
 - **TC-F43-05** — Reconnect/background behavior avoids duplicate refresh and invisible polling amplification.
 - **TC-F43-06** — Performance regression fixture reports distribution, errors and before/after; a 10x claim applies only to measured operation.

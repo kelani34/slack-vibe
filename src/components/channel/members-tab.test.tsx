@@ -12,10 +12,12 @@ const fixture = vi.hoisted(() => ({
   data: undefined as unknown,
   refetch: vi.fn(),
   refetchAvailable: vi.fn(),
+  queryKeys: [] as string[][],
 }));
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: ({ queryKey }: { queryKey: string[] }) => {
+    fixture.queryKeys.push(queryKey);
     const availableMembers = queryKey[0] === 'available-members';
     return {
       data: fixture.data,
@@ -48,6 +50,59 @@ beforeEach(() => {
   fixture.error = false;
   fixture.availableError = false;
   fixture.data = undefined;
+  fixture.queryKeys = [];
+});
+
+it('scopes both member projections to the current actor and workspace', () => {
+  render(
+    <MembersTab
+      channelId="channel"
+      workspaceId="workspace"
+      currentUserId="current"
+      isArchived={false}
+    />,
+  );
+
+  expect(fixture.queryKeys).toContainEqual([
+    'channel-members',
+    'current',
+    'workspace',
+    'channel',
+  ]);
+  expect(fixture.queryKeys).toContainEqual([
+    'available-members',
+    'current',
+    'workspace',
+    'channel',
+  ]);
+});
+
+it('uses the same actor and workspace cache scope in the channel members dialog', async () => {
+  const user = userEvent.setup();
+  render(
+    <ChannelMembersDialog
+      channelId="channel"
+      workspaceId="workspace"
+      workspaceSlug="acme"
+      memberCount={3}
+      currentUserId="current"
+    />,
+  );
+
+  await user.click(screen.getByRole('button', { name: '3' }));
+
+  expect(fixture.queryKeys).toContainEqual([
+    'channel-members',
+    'current',
+    'workspace',
+    'channel',
+  ]);
+  expect(fixture.queryKeys).toContainEqual([
+    'available-members',
+    'current',
+    'workspace',
+    'channel',
+  ]);
 });
 
 it('shows an accessible list-shaped skeleton while channel members load', () => {
