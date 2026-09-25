@@ -23,6 +23,7 @@ import { useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 
 interface EditProfileDialogProps {
   open: boolean;
@@ -66,6 +67,7 @@ export function EditProfileDialog({
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -114,6 +116,7 @@ export function EditProfileDialog({
     } else {
       toast.success('Profile updated');
       queryClient.invalidateQueries({ queryKey: ['user-profile', user.id] });
+      router.refresh();
       onOpenChange(false);
     }
 

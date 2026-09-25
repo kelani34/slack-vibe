@@ -1,14 +1,20 @@
 import React, {
   forwardRef,
-  useEffect,
   useImperativeHandle,
   useState,
 } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
+export interface MentionListItem {
+  id: string;
+  name: string;
+  avatarUrl?: string | null;
+  image?: string | null;
+}
+
 export interface MentionListProps {
-  items: any[];
+  items: MentionListItem[];
   command: (props: { id: string; label: string }) => void;
 }
 
@@ -18,62 +24,52 @@ export interface MentionListRef {
 
 export const MentionList = forwardRef<MentionListRef, MentionListProps>(
   (props, ref) => {
-    const [selectedIndex, setSelectedIndex] = useState(0);
+    const { items, command } = props;
+    const [selection, setSelection] = useState({ items, index: 0 });
+    const selectedIndex = selection.items === items ? selection.index : 0;
+
+    const setSelectedIndex = (index: number) => {
+      setSelection({ items, index });
+    };
 
     const selectItem = (index: number) => {
-      const item = props.items[index];
+      const item = items[index];
       if (item) {
-        props.command({ id: item.id, label: item.name });
+        command({ id: item.id, label: item.name });
       }
     };
 
-    const upHandler = () => {
-      setSelectedIndex(
-        (selectedIndex + props.items.length - 1) % props.items.length
-      );
-    };
-
-    const downHandler = () => {
-      setSelectedIndex((selectedIndex + 1) % props.items.length);
-    };
-
-    const enterHandler = () => {
-      selectItem(selectedIndex);
-    };
-
-    useEffect(() => {
-      setSelectedIndex(0);
-    }, [props.items]);
-
     useImperativeHandle(ref, () => ({
       onKeyDown: ({ event }) => {
-        if (event.key === 'ArrowUp') {
-          upHandler();
-          return true;
-        }
-
-        if (event.key === 'ArrowDown') {
-          downHandler();
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+          if (items.length > 0) {
+            const offset = event.key === 'ArrowUp' ? -1 : 1;
+            setSelection({
+              items,
+              index: (selectedIndex + offset + items.length) % items.length,
+            });
+          }
           return true;
         }
 
         if (event.key === 'Enter') {
-          enterHandler();
+          const item = items[selectedIndex];
+          if (item) command({ id: item.id, label: item.name });
           return true;
         }
 
         return false;
       },
-    }));
+    }), [command, items, selectedIndex]);
 
-    if (props.items.length === 0) {
+    if (items.length === 0) {
       return null;
     }
 
     return (
       <div className="z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95">
         <div className="max-h-[200px] overflow-y-auto">
-          {props.items.map((item, index) => (
+          {items.map((item, index) => (
             <button
               key={item.id}
               className={cn(

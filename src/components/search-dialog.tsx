@@ -1,16 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { 
-  Calculator, 
-  Calendar, 
-  CreditCard, 
-  Settings, 
-  Smile, 
+import {
+  CreditCard,
   User,
-  Search,
-  MessageSquare,
-  Hash
+  Hash,
 } from 'lucide-react';
 
 import {
@@ -20,16 +14,20 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
-  CommandShortcut,
 } from '@/components/ui/command';
 import { searchMessages } from '@/actions/message';
-import { getChannels, getWorkspaceChannels } from '@/actions/channel';
-import { getWorkspaceMembers, getWorkspaces } from '@/actions/workspace';
+import { getWorkspaceChannels } from '@/actions/channel';
+import { getWorkspaceMembers } from '@/actions/workspace';
 import { useDebounce } from '@/hooks/use-debounce';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+
+type SearchMessagePage = Awaited<ReturnType<typeof searchMessages>>;
+type SearchMessage = SearchMessagePage['items'][number];
+type SearchMember = Awaited<ReturnType<typeof getWorkspaceMembers>>[number];
+type SearchChannel = Awaited<ReturnType<typeof getWorkspaceChannels>>[number];
+type SearchFilter = { type: string; value: string; label: string };
 
 interface SearchDialogProps {
   open: boolean;
@@ -40,43 +38,70 @@ interface SearchDialogProps {
 export function SearchDialog({ open, onOpenChange, workspaceSlug }: SearchDialogProps) {
   const router = useRouter();
   const [query, setQuery] = React.useState('');
-  const [results, setResults] = React.useState<any[]>([]);
-  const [members, setMembers] = React.useState<any[]>([]);
-  const [channels, setChannels] = React.useState<any[]>([]);
+  const [results, setResults] = React.useState<SearchMessage[]>([]);
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null);
+  const [resultsSearchKey, setResultsSearchKey] = React.useState('');
+  const [members, setMembers] = React.useState<SearchMember[]>([]);
+  const [channels, setChannels] = React.useState<SearchChannel[]>([]);
   const [isSearching, setIsSearching] = React.useState(false);
-  const [appliedFilters, setAppliedFilters] = React.useState<{ type: string; value: string; label: string }[]>([]);
+  const [searchError, setSearchError] = React.useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
+  const [appliedFilters, setAppliedFilters] = React.useState<SearchFilter[]>([]);
   const [activeFilter, setActiveFilter] = React.useState<{ type: 'from' | 'in' | 'none', value: string }>({ type: 'none', value: '' });
+  const searchKeyRef = React.useRef('');
+  const paginationRequestId = React.useRef(0);
+  const isLoadingMoreRef = React.useRef(false);
 
   React.useEffect(() => {
     if (!open) {
         setQuery('');
         setResults([]);
+        setNextCursor(null);
+        setResultsSearchKey('');
+        setSearchError(null);
         setAppliedFilters([]);
-    }
+        setIsLoadingMore(false);
+        isLoadingMoreRef.current = false;
+        paginationRequestId.current += 1;
+      }
   }, [open]);
 
-  // Load context data on open
+  // Load only the suggestion data required by the active filter.
   React.useEffect(() => {
-    if (open) {
-      const loadContext = async () => {
-        try {
-           const [fetchedMembers, fetchedChannels] = await Promise.all([
-             getWorkspaceMembers(workspaceSlug),
-             getWorkspaceChannels(workspaceSlug)
-           ]);
-           setMembers(fetchedMembers);
-           setChannels(fetchedChannels);
-        } catch (e) {
-           console.error(e);
+    if (!open || activeFilter.type === 'none') return;
+
+    let isCurrentRequest = true;
+    const loadSuggestions = async () => {
+      try {
+        if (activeFilter.type === 'from') {
+          setMembers([]);
+          const fetchedMembers = await getWorkspaceMembers(workspaceSlug);
+          if (isCurrentRequest) setMembers(fetchedMembers);
+          return;
         }
-      };
-      loadContext();
-    }
-  }, [open, workspaceSlug]);
+
+        setChannels([]);
+        const fetchedChannels = await getWorkspaceChannels(workspaceSlug);
+        if (isCurrentRequest) setChannels(fetchedChannels);
+      } catch (error) {
+        if (isCurrentRequest) console.error(error);
+      }
+    };
+    void loadSuggestions();
+
+    return () => {
+      isCurrentRequest = false;
+    };
+  }, [open, workspaceSlug, activeFilter.type]);
 
 
   // Debounce query
   const debouncedQuery = useDebounce(query, 300);
+  const filterStrings = appliedFilters.map(f => `${f.type}:"${f.value}"`);
+  const textQuery = activeFilter.type === 'none' ? debouncedQuery : '';
+  const fullQuery = [...filterStrings, textQuery].join(' ').trim();
+  const currentSearchKey = `${workspaceSlug}\u0000${fullQuery}`;
+  searchKeyRef.current = currentSearchKey;
 
   // Parse query to detect filter context & auto-tokenize
   React.useEffect(() => {
@@ -111,38 +136,99 @@ export function SearchDialog({ open, onOpenChange, workspaceSlug }: SearchDialog
   }, [query]);
 
   React.useEffect(() => {
+    let isCurrentSearch = true;
     const search = async () => {
-      // Construct full query from filters + current input
-      const filterStrings = appliedFilters.map(f => `${f.type}:"${f.value}"`);
-      // We only include debouncedQuery if it's NOT a partial filter
-      const textQuery = activeFilter.type === 'none' ? debouncedQuery : '';
-      const fullQuery = [...filterStrings, textQuery].join(' ').trim();
+      const requestId = ++paginationRequestId.current;
+      isLoadingMoreRef.current = false;
+      setIsLoadingMore(false);
 
-      if (fullQuery.length === 0) {
+      if (!open || fullQuery.length === 0) {
         setResults([]);
+        setNextCursor(null);
+        setResultsSearchKey('');
+        setSearchError(null);
+        setIsSearching(false);
         return;
       }
       
       // Don't search if we are just completing a filter AND we don't have other filters
       // Actually, if we have applied filters, we SHOULD search even if current input is empty
-      if (activeFilter.type !== 'none' && appliedFilters.length === 0) return;
+      if (activeFilter.type !== 'none' && appliedFilters.length === 0) {
+        setResults([]);
+        setNextCursor(null);
+        setResultsSearchKey('');
+        setIsSearching(false);
+        return;
+      }
 
+      setNextCursor(null);
+      setSearchError(null);
       setIsSearching(true);
       try {
-        const data = await searchMessages(fullQuery, workspaceSlug);
-        setResults(data);
+        const page = await searchMessages(fullQuery, workspaceSlug);
+        if (isCurrentSearch && paginationRequestId.current === requestId) {
+          setResults(page.error ? [] : page.items);
+          setNextCursor(page.error ? null : page.nextCursor);
+          setResultsSearchKey(currentSearchKey);
+          setSearchError(page.error ?? null);
+        }
       } catch (error) {
-        console.error(error);
+        if (isCurrentSearch) console.error(error);
       } finally {
-        setIsSearching(false);
+        if (isCurrentSearch && paginationRequestId.current === requestId) setIsSearching(false);
       }
     };
     search();
-  }, [debouncedQuery, workspaceSlug, activeFilter.type, appliedFilters]);
+    return () => {
+      isCurrentSearch = false;
+    };
+  }, [open, currentSearchKey, fullQuery, workspaceSlug, activeFilter.type, appliedFilters]);
 
-  const handleSelectResult = (messageId: string, channelId: string) => {
+  const loadMore = async () => {
+    if (
+      !open ||
+      !nextCursor ||
+      resultsSearchKey !== currentSearchKey ||
+      isLoadingMoreRef.current
+    ) return;
+
+    const requestQuery = fullQuery;
+    const requestKey = currentSearchKey;
+    const requestCursor = nextCursor;
+    const requestId = ++paginationRequestId.current;
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+
+    try {
+      const page = await searchMessages(requestQuery, workspaceSlug, requestCursor);
+      if (searchKeyRef.current !== requestKey || paginationRequestId.current !== requestId) return;
+
+      if (page.error) {
+        setSearchError(page.error);
+        setNextCursor(null);
+        return;
+      }
+
+      setResults((current) => {
+        const knownIds = new Set(current.map((message) => message.id));
+        return [...current, ...page.items.filter((message) => !knownIds.has(message.id))];
+      });
+      setNextCursor(page.nextCursor);
+    } catch (error) {
+      if (searchKeyRef.current === requestKey) console.error(error);
+    } finally {
+      if (paginationRequestId.current === requestId) {
+        isLoadingMoreRef.current = false;
+        setIsLoadingMore(false);
+      }
+    }
+  };
+
+  const handleSelectResult = (messageId: string, channelId: string, parentId: string | null) => {
     onOpenChange(false);
-    router.push(`/${workspaceSlug}/${channelId}?message=${messageId}`);
+    const params = new URLSearchParams({ message: messageId });
+    if (parentId) params.set('thread', parentId);
+    router.push(`/${workspaceSlug}/${channelId}?${params.toString()}`, { scroll: false });
   };
 
   const insertFilter = (type: string, value: string, label: string) => {
@@ -161,6 +247,9 @@ export function SearchDialog({ open, onOpenChange, workspaceSlug }: SearchDialog
   const removeFilter = (index: number) => {
       setAppliedFilters(prev => prev.filter((_, i) => i !== index));
   };
+
+  const canShowSearchResults = resultsSearchKey.startsWith(`${workspaceSlug}\u0000`);
+  const isShowingPreviousResults = resultsSearchKey !== currentSearchKey;
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} shouldFilter={false}>
@@ -185,8 +274,20 @@ export function SearchDialog({ open, onOpenChange, workspaceSlug }: SearchDialog
         ))}
       </CommandInput>
       <CommandList>
+        {searchError && (
+          <p role="alert" className="px-3 py-2 text-sm text-destructive">
+            {searchError}
+          </p>
+        )}
+        {isSearching && (
+          <p role="status" aria-live="polite" className="px-3 py-2 text-xs text-muted-foreground">
+            {canShowSearchResults && results.length > 0 && isShowingPreviousResults
+              ? 'Searching… Showing previous results.'
+              : 'Searching…'}
+          </p>
+        )}
         <CommandEmpty>
-           {isSearching ? 'Searching...' : 'No results found.'}
+           {searchError ? '' : isSearching ? 'Searching...' : 'No results found.'}
         </CommandEmpty>
         
         {/* Dynamic Suggestions for Filters */}
@@ -198,16 +299,19 @@ export function SearchDialog({ open, onOpenChange, workspaceSlug }: SearchDialog
                 </CommandItem>
                 {members
                   .filter(m => (m.name || m.displayName || '').toLowerCase().includes(activeFilter.value.toLowerCase()))
-                  .map(member => (
-                    <CommandItem key={member.id} onSelect={() => insertFilter('from', member.name, member.name)}>
+                  .map((member) => {
+                    const displayName = member.displayName || member.name || 'Unknown member';
+                    return (
+                    <CommandItem key={member.id} onSelect={() => insertFilter('from', displayName, displayName)}>
                         <Avatar className="h-6 w-6 mr-2">
-                           <AvatarImage src={member.avatarUrl || member.image} />
-                           <AvatarFallback>{(member.name || '?')[0]}</AvatarFallback>
+                           <AvatarImage src={member.avatarUrl || member.image || undefined} />
+                           <AvatarFallback>{displayName[0]}</AvatarFallback>
                         </Avatar>
-                        <span>{member.name}</span>
+                        <span>{displayName}</span>
                         <span className="ml-2 text-xs text-muted-foreground">{member.email}</span>
                     </CommandItem>
-                ))}
+                  );
+                })}
             </CommandGroup>
         )}
 
@@ -225,12 +329,12 @@ export function SearchDialog({ open, onOpenChange, workspaceSlug }: SearchDialog
         )}
         
         {/* Main Search Results */}
-        {activeFilter.type === 'none' && results.length > 0 && (
+        {activeFilter.type === 'none' && canShowSearchResults && results.length > 0 && (
           <CommandGroup heading="Messages">
             {results.map((msg) => (
               <CommandItem 
                 key={msg.id} 
-                onSelect={() => handleSelectResult(msg.id, msg.channelId)}
+                onSelect={() => handleSelectResult(msg.id, msg.channelId, msg.parentId)}
                 className="flex flex-col items-start gap-1 py-3"
               >
                 <div className="flex items-center gap-2 w-full">
@@ -252,6 +356,11 @@ export function SearchDialog({ open, onOpenChange, workspaceSlug }: SearchDialog
                 </p>
               </CommandItem>
             ))}
+            {nextCursor && resultsSearchKey === currentSearchKey && (
+              <CommandItem onSelect={() => void loadMore()} disabled={isLoadingMore}>
+                {isLoadingMore ? 'Loading more results...' : 'Load more results'}
+              </CommandItem>
+            )}
           </CommandGroup>
         )}
 

@@ -2,13 +2,18 @@
 
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
 
 export async function toggleStarChannel(channelId: string) {
   const session = await auth();
   if (!session?.user?.id) {
     return { error: 'Unauthorized' };
   }
+
+  const member = await prisma.channelMember.findUnique({
+    where: { channelId_userId: { channelId, userId: session.user.id } },
+    select: { id: true },
+  });
+  if (!member) return { error: 'You are not a member of this channel' };
 
   // Check if already starred
   const existing = await prisma.starredChannel.findUnique({
@@ -25,7 +30,6 @@ export async function toggleStarChannel(channelId: string) {
     await prisma.starredChannel.delete({
       where: { id: existing.id },
     });
-    revalidatePath('/');
     return { success: true, starred: false };
   } else {
     // Star
@@ -35,7 +39,6 @@ export async function toggleStarChannel(channelId: string) {
         channelId,
       },
     });
-    revalidatePath('/');
     return { success: true, starred: true };
   }
 }
@@ -43,6 +46,12 @@ export async function toggleStarChannel(channelId: string) {
 export async function isChannelStarred(channelId: string) {
   const session = await auth();
   if (!session?.user?.id) return false;
+
+  const member = await prisma.channelMember.findUnique({
+    where: { channelId_userId: { channelId, userId: session.user.id } },
+    select: { id: true },
+  });
+  if (!member) return false;
 
   const starred = await prisma.starredChannel.findUnique({
     where: {

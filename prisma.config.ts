@@ -10,7 +10,7 @@ export default defineConfig({
   },
   datasource: {
     url: process.env['DATABASE_URL'],
-    // @ts-ignore - Prisma 7 experimental config
+    // @ts-expect-error - Prisma CLI supports directUrl before its config type does.
     directUrl: process.env['DIRECT_URL'],
   },
 });

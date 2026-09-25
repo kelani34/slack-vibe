@@ -25,14 +25,19 @@ async function main() {
         `alter publication supabase_realtime add table "${table}";`
       );
       console.log(`✅ Added ${table} to publication`);
-    } catch (e: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      const code =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? error.code
+          : undefined;
       if (
-        e.message?.includes('already member of publication') ||
-        e.code === '42710'
+        message.includes('already member of publication') ||
+        code === '42710'
       ) {
         console.log(`ℹ️ ${table} already in publication`);
       } else {
-        console.error(`❌ Failed to add ${table}:`, e.message);
+        console.error(`❌ Failed to add ${table}:`, message);
       }
     }
   }

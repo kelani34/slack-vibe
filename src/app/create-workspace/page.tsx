@@ -10,7 +10,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -60,6 +59,7 @@ export default function CreateWorkspacePage() {
     } else {
       toast.success('Workspace created');
       router.push(`/${result.slug}`);
+      router.refresh();
     }
   }
 

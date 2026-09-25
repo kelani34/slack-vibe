@@ -68,9 +68,11 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
 
     try {
-      await markNotificationRead(id);
+      const result = await markNotificationRead(id);
+      if ('error' in result) throw new Error(result.error);
     } catch (error) {
       console.error('Failed to mark notification read', error);
+      set({ notifications, unreadCount });
     }
   },
 
@@ -87,29 +89,34 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
 
     try {
-      await markNotificationUnread(id);
+      const result = await markNotificationUnread(id);
+      if ('error' in result) throw new Error(result.error);
     } catch (error) {
       console.error('Failed to mark notification unread', error);
+      set({ notifications, unreadCount });
     }
   },
 
   markAllAsRead: async () => {
-    const { notifications } = get();
+    const { notifications, unreadCount } = get();
     set({
       notifications: notifications.map(n => ({ ...n, isRead: true })),
       unreadCount: 0
     });
 
     try {
-      await markAllNotificationsRead();
+      const result = await markAllNotificationsRead();
+      if ('error' in result) throw new Error(result.error);
     } catch (error) {
       console.error('Failed to mark all read', error);
+      set({ notifications, unreadCount });
     }
   },
 
   markChannelAsRead: async (channelId) => {
     try {
-      await markChannelNotificationsRead(channelId);
+      const result = await markChannelNotificationsRead(channelId);
+      if ('error' in result) throw new Error(result.error);
       const res = await getNotifications();
       if ('error' in res) {
         console.error(res.error);
@@ -123,9 +130,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   addNotification: (notification) => {
-    set(state => ({
-      notifications: [notification, ...state.notifications],
-      unreadCount: state.unreadCount + 1
-    }));
+    set(state => {
+      if (state.notifications.some(({ id }) => id === notification.id)) return state;
+      return {
+        notifications: [notification, ...state.notifications],
+        unreadCount: state.unreadCount + 1,
+      };
+    });
   }
 }));

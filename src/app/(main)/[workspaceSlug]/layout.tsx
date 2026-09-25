@@ -1,5 +1,5 @@
 import { AppSidebar } from '@/components/app-sidebar';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { getWorkspaces } from '@/actions/workspace';
 import { getChannels } from '@/actions/channel';
 import { getStarredChannels } from '@/actions/star';
@@ -15,7 +15,7 @@ export default async function WorkspaceLayout({
   params: Promise<{ workspaceSlug: string }>;
 }) {
   const session = await auth();
-  if (!session?.user) return redirect('/login');
+  if (!session?.user?.id) return redirect('/login');
 
   const { workspaceSlug } = await params;
 
@@ -25,6 +25,17 @@ export default async function WorkspaceLayout({
   });
 
   if (!workspace) return notFound();
+
+  const membership = await prisma.workspaceMember.findUnique({
+    where: {
+      workspaceId_userId: {
+        workspaceId: workspace.id,
+        userId: session.user.id,
+      },
+    },
+    select: { id: true },
+  });
+  if (!membership) return notFound();
 
   // Fetch all data in parallel
   const [workspaces, channels, starredChannels] = await Promise.all([
@@ -51,6 +62,10 @@ export default async function WorkspaceLayout({
       />
       <SidebarInset className="h-screen">
         <main className="flex flex-1 flex-col h-full overflow-hidden">
+          <header className="flex h-12 shrink-0 items-center border-b px-2 md:hidden">
+            <SidebarTrigger />
+            <span className="ml-2 text-sm font-medium">{workspace.name}</span>
+          </header>
           {children}
         </main>
       </SidebarInset>

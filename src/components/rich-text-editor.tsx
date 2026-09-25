@@ -44,11 +44,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { addHours, addMinutes, format, setHours, setMinutes } from 'date-fns';
 
 interface RichTextEditorProps {
-  onSubmit: (html: string, text: string, scheduledAt?: Date) => void;
+  onSubmit: (html: string, text: string, scheduledAt?: Date) => void | Promise<boolean | void>;
   onAttachClick?: () => void;
   placeholder?: string;
   disabled?: boolean;
@@ -61,6 +61,7 @@ interface RichTextEditorProps {
   channelId?: string;
   canSend?: boolean;
   onTyping?: () => void;
+  draftKey?: string;
 }
 
 function ToolbarButton({
@@ -104,6 +105,7 @@ export function RichTextEditor({
   channelId,
   canSend = false,
   onTyping,
+  draftKey,
 }: RichTextEditorProps) {
   const [showToolbar, setShowToolbar] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
@@ -111,10 +113,12 @@ export function RichTextEditor({
   const [scheduleTime, setScheduleTime] = useState('');
   const [hasContent, setHasContent] = useState(false);
   const isMentionOpenRef = useRef(false);
+  const draftReadyRef = useRef(!draftKey);
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        link: false,
         bulletList: {
           keepMarks: true,
           keepAttributes: false,
@@ -135,6 +139,8 @@ export function RichTextEditor({
         HTMLAttributes: {
           class: 'mention',
         },
+        // ProseMirror invokes this callback outside React render to guard Enter while mentions are open.
+        // eslint-disable-next-line react-hooks/refs
         suggestion: createSuggestion((isOpen) => {
           isMentionOpenRef.current = isOpen;
         }),
@@ -180,12 +186,32 @@ export function RichTextEditor({
     onUpdate: ({ editor }) => {
       setHasContent(!!editor.getText().trim());
       onTyping?.();
+      if (draftKey && draftReadyRef.current) {
+        const draft = editor.getHTML();
+        if (editor.getText().trim()) {
+          window.localStorage.setItem(draftKey, draft);
+        } else {
+          window.localStorage.removeItem(draftKey);
+        }
+      }
     },
     immediatelyRender: false,
   });
-  // ...
 
-  function handleSubmit(scheduledAt?: Date) {
+  useEffect(() => {
+    if (!editor || !draftKey) return;
+    draftReadyRef.current = false;
+    const savedDraft = window.localStorage.getItem(draftKey);
+    if (savedDraft) {
+      editor.commands.setContent(savedDraft);
+    } else {
+      editor.commands.clearContent();
+    }
+    draftReadyRef.current = true;
+    setHasContent(!!editor.getText().trim());
+  }, [draftKey, editor]);
+
+  async function handleSubmit(scheduledAt?: Date) {
     if (!editor) return;
     const html = editor.getHTML();
     const text = editor.getText();
@@ -194,8 +220,10 @@ export function RichTextEditor({
       return;
     }
 
-    onSubmit(html, text, scheduledAt);
+    const submitted = await onSubmit(html, text, scheduledAt);
+    if (submitted === false) return;
     editor.commands.clearContent();
+    if (draftKey) window.localStorage.removeItem(draftKey);
   }
 
   function handleScheduleSubmit() {

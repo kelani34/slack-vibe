@@ -2,7 +2,10 @@ import type { NextAuthConfig } from 'next-auth';
 import GitHub from 'next-auth/providers/github';
 
 export default {
-  providers: [GitHub],
+  providers: [GitHub({
+    issuer: 'https://github.com/login/oauth',
+    checks: ['pkce', 'state'],
+  })],
   session: { strategy: 'jwt' },
   pages: {
     signIn: '/login',

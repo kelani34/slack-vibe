@@ -3,6 +3,7 @@
 import { toggleStarChannel } from '@/actions/star';
 import { Button } from '@/components/ui/button';
 import { Star } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useOptimistic, useTransition } from 'react';
 import { toast } from 'sonner';
 
@@ -12,6 +13,7 @@ interface StarButtonProps {
 }
 
 export function StarButton({ channelId, initialStarred }: StarButtonProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [optimisticStarred, setOptimisticStarred] =
     useOptimistic(initialStarred);
@@ -25,6 +27,8 @@ export function StarButton({ channelId, initialStarred }: StarButtonProps) {
       if (result.error) {
         toast.error(result.error);
         setOptimisticStarred(optimisticStarred); // Revert
+      } else {
+        router.refresh();
       }
     });
   }

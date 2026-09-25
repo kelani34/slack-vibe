@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -16,7 +16,7 @@ export function useTypingIndicator(
   currentUser?: { id: string; name: string; avatarUrl?: string }
 ) {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastBroadcastRef = useRef<number>(0);
@@ -58,7 +58,7 @@ export function useTypingIndicator(
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [channelId, currentUser?.id]);
+  }, [channelId, currentUser?.id, supabase]);
 
   const broadcastTyping = useCallback(() => {
     if (!currentUser || !channelRef.current) return;

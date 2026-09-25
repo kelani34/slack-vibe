@@ -1,0 +1,48 @@
+# Browser verification and immediate recovery backlog
+
+[Index](README.md) · [Delivery sequence](delivery-plan.md) · [Original source assessment](assessment.md) · [QA ledger](qa-checklist.md)
+
+Inspected 18 September 2026 using the user's signed-in GitHub browser session. Local source remains `13a87c4`; GitHub's main branch visibly displayed the same short commit. This is a limited entry-point inspection, not an authenticated feature acceptance run. No OAuth settings, credentials, repository settings, application data or deployments were changed.
+
+## Observations
+
+| Evidence | Reproduction | Actual result | Consequence / owner |
+|---|---|---|---|
+| B01 | Open the [repository](https://github.com/kelani34/slack-vibe) in the signed-in session | Repository visible; main shows `13a87c4`; About links to the deployed app | Repository inspection available; no claim that browser login grants CLI credentials |
+| B02 | Open the [deployed app](https://slack-vibe-fawn.vercel.app/) and select Sign in with GitHub | App reaches `/login`; GitHub then displays “The redirect_uri is not associated with this application.” | **BLOCKER:** deployed authentication cannot complete through this flow; W01/W19, P00 |
+| B03 | Open `http://localhost:3000/` and select Sign in with GitHub | Initial attempt redirected to `/api/auth/error?error=Configuration`; later B06 reached the authenticated workspace in this browser session | **OPEN:** initial error is not currently reproducing for entry; B07–B09 now verify the local return/logout/protected-route cycle, while expiry and independent round trips remain; W01/W19, P00 |
+| B04 | Open [repository Actions](https://github.com/kelani34/slack-vibe/actions) | “Get started with GitHub Actions” setup screen | Consistent with no committed workflow in source; no CI test evidence established; W01/W18 |
+| B05 | Inspect local environment key presence and auth source without printing values | Auth secret, URL, GitHub ID/secret, database and Supabase keys are nonempty; Auth.js uses GitHub, Prisma adapter and JWT sessions | Presence is not validity; B03's root cause remains unverified. Do not infer missing credentials or overwrite values |
+| B06 | From the local login page, select Sign in with GitHub using the already signed-in browser session | OAuth completes and lands at the authenticated workspace route with the workspace switcher, channels, navigation links and signed-in profile visible | Local authentication entry point is now verified for this session; deployed B02 and production environment verification remain separate |
+
+The initial deployed navigation timed out, but subsequent tab inspection established that it reached `/login`; it is not recorded as an app outage. The OAuth rejection is the actual observed failure. B06 only confirmed that the local authenticated shell rendered; it did not exercise channel, call, mobile-device or data-isolation behavior. Original type/lint results in [assessment](assessment.md) are prior checks at the same source revision, not newly rerun results.
+
+## Recovery sequence before feature work
+
+1. Record the intended local, test/staging and production origins, the environment that owns each OAuth registration, and the current deployed build. Inspect the emitted callback destination and registered callback configuration without copying client secrets, auth codes, state parameters or full authorization URLs into evidence.
+2. Reproduce B03 with sanitized server diagnostics. Classify the actual cause: configuration validation, provider setup, database/adapter initialization, runtime mismatch or another named error. A browser `Configuration` result is not enough to choose a fix. Validate environment loading and database connectivity in the correct environment without running migrations or destructive probes against unknown data.
+3. Write a failing configuration/callback contract test for the diagnosed defect. Recover the intended origin/provider pairing. Preserve CSRF/state/PKCE checks and same-origin return-target validation. Do not use a wildcard callback or disable host validation merely to make login pass. Any necessary credential/security-setting changes belong to the implementation task and its applicable authorization rules.
+4. Test the real provider round trip in each supported environment with approved test identities. A mocked provider test complements this; it cannot certify the registered callback. Verify new/existing account behavior, cancel/error handling, protected-route return, logout and expired session.
+5. Obtain isolated actors and fixtures before authenticated feature QA. Use two workspaces, owner/admin/member/outsider/removed actors, a private channel and controlled synthetic content. Never use another person's private conversations to test access denial.
+6. Update B02/B03 with candidate build, sanitized actual result and independent QA retest. Only then start the authenticated browser sweep in [delivery plan](delivery-plan.md#browser-and-device-execution-order). Leave unrelated features NOT RUN until their cases execute.
+
+GitHub documents callback mismatch as an OAuth authorization-request error; matching the intended origin and registration is the investigation path, not a confirmed edit to a particular setting. See [GitHub troubleshooting](https://docs.github.com/en/apps/oauth-apps/maintaining-oauth-apps/troubleshooting-authorization-request-errors). Verify the actual current callback options before making changes; provider configuration can evolve.
+
+## Follow-up browser evidence, 24 September 2026
+
+| Evidence | Reproduction | Actual result | Boundary |
+|---|---|---|---|
+| B07 | In the already authenticated local Slack Vibe tab, open `/login` with a relative callback to an existing group conversation | The signed-in route guard returned to that requested conversation; its group identity and composer rendered | Local working-tree candidate on `localhost:3000`; developer browser verification, not independent QA |
+| B08 | Select **Log out**, then revisit the same protected conversation URL | Sign-out returned to `/login`; the protected route redirected back to `/login` with a relative callback and did not render the conversation | Confirms the local browser session was no longer accepted by the protected route; does not certify expiry, revocation across other devices, or production |
+| B09 | Sign in again through the GitHub button | GitHub sign-in returned to the same requested group conversation and restored the local authenticated workspace session | Local provider round trip only; no OAuth registration, credentials, GitHub account settings or deployment changed |
+| B10 | Open the `slack-vibe` OAuth application in the signed-in GitHub Developer Settings page, read-only | The registration shown for this account lists a local development callback; the deployed hostname is absent | Supports the B02 diagnosis but does not prove which client ID the deployed environment uses; no setting was changed |
+| B11 | In a separate local tab, navigate from All Unread to Members, then use browser Back and Forward | Back restored the unread-inbox route and its empty state; Forward restored Members. Focus stayed on the Members sidebar link and no message/read state was changed | Safe developer route-history smoke only; search/message query state, viewport restoration, mobile behavior and independent QA remain unverified |
+| B12 | Open an existing group DM at desktop size, then apply a 390×844 phone viewport | The sidebar collapsed, mobile workspace bar and DM Back control appeared, three stacked avatars, group name/actions, empty state and composer remained visible without horizontal clipping | Developer visual smoke for one empty group-DM state only; keyboard-open, long content, assistive technology, actual devices and independent QA remain open |
+
+The local tests used existing routes and did not send or edit messages. Conversation identifiers and content are omitted. These observations close the local developer smoke for login return, logout and immediate protected-route denial. The read-only B10 registration inspection supports a local-only callback configuration, but the deployed client's identity must still be matched before changing a registration. No OAuth setting was changed. These observations do not substitute for independent QA or verify expiry/cancellation/network-failure behavior.
+
+## Evidence boundary
+
+The local authenticated flow is now verified by B06. This does not certify the deployed callback, production configuration, or the independent QA ledger.
+
+The browser observations above remain distinct from the independent QA ledger. QF/QR rows are still NOT RUN for full acceptance. B02 remains an unresolved deployed callback failure. B03 records the initial local configuration error; B06 and B09 verified local GitHub sign-in, B07/B08 verified the local return/logout/protected-route cycle, B10 found a local-only redirect registration without confirming the deployed client identity, B11 covers basic workspace-route history, and B12 covers one empty group-DM phone layout. Search/message query restoration, viewport/focus behavior, full mobile/device checks, expiry, cancellation, recovery from provider/network errors and independent authentication retests remain open. Do not treat the historical B03 failure as proof that current local entry is still blocked, or B06–B12 as full authentication acceptance. The full planned feature cases are in [acceptance cases](acceptance-cases.md).

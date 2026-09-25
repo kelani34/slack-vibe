@@ -1,4 +1,6 @@
 import { signIn } from '@/auth';
+import { getAuthErrorMessage } from '@/lib/auth-error-message';
+import { getSafeReturnPath } from '@/lib/auth-return-path';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -8,7 +10,15 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams: Promise<{ callbackUrl?: string | string[]; error?: string | string[] }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { callbackUrl, error } = await searchParams;
+  const redirectTo = getSafeReturnPath(callbackUrl);
+  const errorMessage = getAuthErrorMessage(error);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/50">
       <Card className="w-full max-w-md">
@@ -19,10 +29,15 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {errorMessage && (
+            <p role="alert" className="text-sm text-destructive">
+              {errorMessage}
+            </p>
+          )}
           <form
             action={async () => {
               'use server';
-              await signIn('github', { redirectTo: '/' });
+              await signIn('github', { redirectTo });
             }}
           >
             <Button className="w-full" variant="outline" type="submit">

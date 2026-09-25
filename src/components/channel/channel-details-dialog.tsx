@@ -13,9 +13,18 @@ import { MembersTab } from './members-tab';
 import { SettingsTab } from './settings-tab';
 import { Hash, Lock } from 'lucide-react';
 import { useState } from 'react';
+import type { Channel, User } from '@prisma/client';
+
+type ChannelDetails = Pick<
+  Channel,
+  'id' | 'name' | 'type' | 'isArchived' | 'creatorId' | 'postingPermission' | 'topics' | 'description'
+> & {
+  workspace: { slug: string };
+  creator?: Pick<User, 'image' | 'name'> | null;
+};
 
 interface ChannelDetailsDialogProps {
-  channel: any;
+  channel: ChannelDetails;
   currentUserId: string;
   workspaceId: string;
   userRole: string; // Workspace role
@@ -82,7 +91,6 @@ export function ChannelDetailsDialog({
             <TabsContent value="about" className="h-full mt-0 border-0 p-0">
               <AboutTab
                 channel={channel}
-                currentUserId={currentUserId}
                 workspaceId={workspaceId}
               />
             </TabsContent>

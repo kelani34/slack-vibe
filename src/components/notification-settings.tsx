@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { updateUserPreferences } from '@/actions/user';
 import { toast } from 'sonner';
@@ -32,7 +31,7 @@ export function NotificationSettings({ initialPreferences }: NotificationSetting
         setPreferences(preferences); // Revert
         toast.error('Failed to update preferences');
       }
-    } catch (error) {
+    } catch {
        setPreferences(preferences);
        toast.error('Something went wrong');
     } finally {

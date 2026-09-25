@@ -1,6 +1,7 @@
 'use client';
 
 import { getUserProfile, hideUser } from '@/actions/user';
+import { getOrCreateDirectMessage } from '@/actions/channel';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,17 +30,19 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { EditProfileDialog } from '@/components/edit-profile-dialog';
 
 interface ProfileSidebarProps {
   workspaceSlug: string;
+  workspaceId: string;
   currentUserId: string;
   onBack?: () => void;
 }
 
 export function ProfileSidebar({
   workspaceSlug,
+  workspaceId,
   currentUserId,
   onBack,
 }: ProfileSidebarProps) {
@@ -53,7 +56,7 @@ export function ProfileSidebar({
   const { data: user, isLoading } = useQuery({
     queryKey: ['user-profile', activeProfileUserId],
     queryFn: () =>
-      activeProfileUserId ? getUserProfile(activeProfileUserId) : null,
+      activeProfileUserId ? getUserProfile(activeProfileUserId, workspaceId) : null,
     enabled: !!activeProfileUserId,
   });
 
@@ -97,15 +100,22 @@ export function ProfileSidebar({
   }
 
   async function handleStartDM() {
-    // TODO: Implement DM channel creation
-    toast.info('DM feature coming soon!');
+    if (!user?.id) return;
+    const workspace = await getOrCreateDirectMessage(workspaceId, user.id);
+    if (workspace.error || !workspace.channelId) {
+      toast.error(workspace.error || 'Unable to start direct message');
+      return;
+    }
+    setActiveProfile(null);
+    router.push(`/${workspaceSlug}/${workspace.channelId}`);
+    router.refresh();
   }
 
   const displayName = user?.displayName || user?.name || 'Unknown User';
 
   return (
     <>
-      <div className="flex h-full w-80 flex-col border-l bg-background">
+      <div className="absolute inset-0 z-20 flex h-full w-full flex-col border-l bg-background sm:static sm:w-80">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-4 py-3">
           <div className="flex items-center gap-1">

@@ -2,9 +2,10 @@
 
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
 import { createNotification } from './notification';
 import { NotificationType } from '@prisma/client';
+import { encodeXML } from 'entities';
+import { sanitizeMessageHtml } from '@/lib/message-html';
 
 // Toggle reaction on a message
 export async function toggleReaction(messageId: string, emoji: string) {
@@ -12,6 +13,17 @@ export async function toggleReaction(messageId: string, emoji: string) {
   if (!session?.user?.id) return { error: 'Unauthorized' };
 
   try {
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      select: { channelId: true },
+    });
+    if (!message) return { error: 'Message not found' };
+    const member = await prisma.channelMember.findUnique({
+      where: { channelId_userId: { channelId: message.channelId, userId: session.user.id } },
+      select: { id: true },
+    });
+    if (!member) return { error: 'You are not a member of this channel' };
+
     const existing = await prisma.reaction.findUnique({
       where: {
         messageId_userId_emoji: {
@@ -50,7 +62,7 @@ export async function toggleReaction(messageId: string, emoji: string) {
     }
 
     return { success: true };
-  } catch (error) {
+  } catch {
     return { error: 'Failed to toggle reaction' };
   }
 }
@@ -61,6 +73,14 @@ export async function bookmarkMessage(messageId: string) {
   if (!session?.user?.id) return { error: 'Unauthorized' };
 
   try {
+    const message = await prisma.message.findUnique({ where: { id: messageId }, select: { channelId: true } });
+    if (!message) return { error: 'Message not found' };
+    const member = await prisma.channelMember.findUnique({
+      where: { channelId_userId: { channelId: message.channelId, userId: session.user.id } },
+      select: { id: true },
+    });
+    if (!member) return { error: 'You are not a member of this channel' };
+
     await prisma.bookmarkedMessage.create({
       data: {
         userId: session.user.id,
@@ -68,8 +88,8 @@ export async function bookmarkMessage(messageId: string) {
       },
     });
     return { success: true };
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
       return { error: 'Already bookmarked' };
     }
     return { error: 'Failed to bookmark message' };
@@ -82,6 +102,17 @@ export async function unbookmarkMessage(messageId: string) {
   if (!session?.user?.id) return { error: 'Unauthorized' };
 
   try {
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      select: { channelId: true },
+    });
+    if (!message) return { error: 'Message not found' };
+    const member = await prisma.channelMember.findUnique({
+      where: { channelId_userId: { channelId: message.channelId, userId: session.user.id } },
+      select: { id: true },
+    });
+    if (!member) return { error: 'You are not a member of this channel' };
+
     await prisma.bookmarkedMessage.delete({
       where: {
         userId_messageId: {
@@ -91,7 +122,7 @@ export async function unbookmarkMessage(messageId: string) {
       },
     });
     return { success: true };
-  } catch (error) {
+  } catch {
     return { error: 'Failed to remove bookmark' };
   }
 }
@@ -100,6 +131,17 @@ export async function unbookmarkMessage(messageId: string) {
 export async function isMessageBookmarked(messageId: string) {
   const session = await auth();
   if (!session?.user?.id) return false;
+
+  const message = await prisma.message.findUnique({
+    where: { id: messageId },
+    select: { channelId: true },
+  });
+  if (!message) return false;
+  const member = await prisma.channelMember.findUnique({
+    where: { channelId_userId: { channelId: message.channelId, userId: session.user.id } },
+    select: { id: true },
+  });
+  if (!member) return false;
 
   const bookmark = await prisma.bookmarkedMessage.findUnique({
     where: {
@@ -119,7 +161,10 @@ export async function getBookmarkedMessages() {
   if (!session?.user?.id) return [];
 
   const bookmarks = await prisma.bookmarkedMessage.findMany({
-    where: { userId: session.user.id },
+    where: {
+      userId: session.user.id,
+      message: { channel: { members: { some: { userId: session.user.id } } } },
+    },
     include: {
       message: {
         include: {
@@ -142,6 +187,13 @@ export async function getBookmarkedMessages() {
 export async function pinMessage(messageId: string, channelId: string) {
   const session = await auth();
   if (!session?.user?.id) return { error: 'Unauthorized' };
+
+  const member = await prisma.channelMember.findUnique({
+    where: { channelId_userId: { channelId, userId: session.user.id } },
+    select: { id: true },
+  });
+  const message = await prisma.message.findUnique({ where: { id: messageId }, select: { channelId: true } });
+  if (!member || !message || message.channelId !== channelId) return { error: 'You are not a member of this channel' };
 
   try {
     await prisma.$transaction([
@@ -174,10 +226,9 @@ export async function pinMessage(messageId: string, channelId: string) {
       });
     }
 
-    revalidatePath('/');
     return { success: true };
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
       return { error: 'Already pinned' };
     }
     return { error: 'Failed to pin message' };
@@ -188,6 +239,20 @@ export async function pinMessage(messageId: string, channelId: string) {
 export async function unpinMessage(messageId: string, channelId: string) {
   const session = await auth();
   if (!session?.user?.id) return { error: 'Unauthorized' };
+
+  const member = await prisma.channelMember.findUnique({
+    where: { channelId_userId: { channelId, userId: session.user.id } },
+    select: { id: true },
+  });
+  if (!member) return { error: 'You are not a member of this channel' };
+
+  const message = await prisma.message.findUnique({
+    where: { id: messageId },
+    select: { channelId: true },
+  });
+  if (!message || message.channelId !== channelId) {
+    return { error: 'Message not found in this channel' };
+  }
 
   try {
     await prisma.$transaction([
@@ -205,9 +270,8 @@ export async function unpinMessage(messageId: string, channelId: string) {
       }),
     ]);
 
-    revalidatePath('/');
     return { success: true };
-  } catch (error) {
+  } catch {
     return { error: 'Failed to unpin message' };
   }
 }
@@ -216,6 +280,12 @@ export async function unpinMessage(messageId: string, channelId: string) {
 export async function getPinnedMessages(channelId: string) {
   const session = await auth();
   if (!session?.user?.id) return [];
+
+  const member = await prisma.channelMember.findUnique({
+    where: { channelId_userId: { channelId, userId: session.user.id } },
+    select: { id: true },
+  });
+  if (!member) return [];
 
   const pinned = await prisma.pinnedMessage.findMany({
     where: { channelId },
@@ -251,8 +321,66 @@ export async function forwardMessage(
 
     if (!original) return { error: 'Message not found' };
 
+    const memberships = await prisma.channelMember.findMany({
+      where: {
+        userId: session.user.id,
+        channelId: { in: [original.channelId, targetChannelId] },
+      },
+      select: { channelId: true },
+    });
+    const memberChannelIds = new Set(memberships.map((membership) => membership.channelId));
+    if (!memberChannelIds.has(original.channelId) || !memberChannelIds.has(targetChannelId)) {
+      return { error: 'You must be a member of both channels' };
+    }
+
+    const targetChannel = await prisma.channel.findUnique({
+      where: { id: targetChannelId },
+      select: { postingPermission: true, workspaceId: true },
+    });
+    if (!targetChannel) return { error: 'Destination channel not found' };
+    if (targetChannel.postingPermission !== 'EVERYONE') {
+      const workspaceMember = await prisma.workspaceMember.findUnique({
+        where: {
+          workspaceId_userId: {
+            workspaceId: targetChannel.workspaceId,
+            userId: session.user.id,
+          },
+        },
+        select: { role: true },
+      });
+      const allowed =
+        targetChannel.postingPermission === 'ADMIN_ONLY'
+          ? workspaceMember?.role === 'OWNER' || workspaceMember?.role === 'ADMIN'
+          : targetChannel.postingPermission === 'OWNER_ONLY'
+            ? workspaceMember?.role === 'OWNER'
+            : await prisma.channelPostingAllowedMember.findUnique({
+                where: { channelId_userId: { channelId: targetChannelId, userId: session.user.id } },
+                select: { id: true },
+              });
+      if (!allowed) return { error: 'You cannot post in the destination channel' };
+    }
+
     // Create forwarded message with attribution
-    const forwardedContent = `<p><em>Forwarded from @${original.user.name}</em></p>${original.content}`;
+    const attribution = encodeXML(original.user.name || 'Unknown');
+    const sourceContent = sanitizeMessageHtml(original.content);
+    const mentionIds = Array.from(
+      new Set(
+        Array.from(sourceContent.matchAll(/data-type="mention" data-id="([^"]+)"/g), ([, id]) => id),
+      ),
+    );
+    const destinationMembers = mentionIds.length
+      ? await prisma.channelMember.findMany({
+          where: { channelId: targetChannelId, userId: { in: mentionIds } },
+          select: { userId: true },
+        })
+      : [];
+    const safeSourceContent = sanitizeMessageHtml(
+      original.content,
+      new Set(destinationMembers.map(({ userId }) => userId)),
+    );
+    const forwardedContent = sanitizeMessageHtml(
+      `<p><em>Forwarded from @${attribution}</em></p>${safeSourceContent}`,
+    );
 
     await prisma.message.create({
       data: {
@@ -263,7 +391,7 @@ export async function forwardMessage(
     });
 
     return { success: true };
-  } catch (error) {
+  } catch {
     return { error: 'Failed to forward message' };
   }
 }
@@ -272,6 +400,12 @@ export async function forwardMessage(
 export async function getBookmarkedMessageIds(channelId: string) {
   const session = await auth();
   if (!session?.user?.id) return [];
+
+  const member = await prisma.channelMember.findUnique({
+    where: { channelId_userId: { channelId, userId: session.user.id } },
+    select: { id: true },
+  });
+  if (!member) return [];
 
   const bookmarks = await prisma.bookmarkedMessage.findMany({
     where: {

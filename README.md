@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Slack Vibe
 
-## Getting Started
+Slack Vibe is a production-oriented team communication application built with Next.js, React, Prisma/PostgreSQL, Supabase and Auth.js. The current working branch contains an active TDD implementation program for secure messaging, direct and group conversations, search, unread workflows, mobile responsiveness, precise motion, performance and the broader Slack/Discord-grade roadmap.
 
-First, run the development server:
+The full scope is intentionally explicit. The product catalogue contains 90 capabilities, 108 requirements and 78 route patterns, including voice/video calls, meetings, scheduling, collaboration tools, community/platform features and dedicated-client planning. Partial implementation is never represented as complete.
+
+## Start here
+
+- [Documentation index](docs/README.md): source map for every specification.
+- [Delivery plan](docs/delivery-plan.md): P00–P14 sequence and persistent implementation loop.
+- [Design specification](docs/design.md) and [implementation audit](docs/design-audit.md): intended UI system and observed gaps.
+- [TDD policy](docs/tdd.md): required red, green, refactor and release evidence.
+- [Commit and push workflow](docs/contribution-workflow.md): branch, commit, gate and remote-verification rules.
+- [QA checklist](docs/qa-checklist.md): independent feature and route verdict ledger.
+
+## Local development
+
+Use Node 22.23.2 and npm 10.9.8.
 
 ```bash
+npm ci
+npm run db:generate
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application expects the environment variables documented by the configuration and operations specifications. Do not use production data for local or automated tests.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verification
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run docs:check
+npm test -- --maxWorkers=1 --testTimeout=15000
+npm run typecheck
+npm run lint
+npm run build
+```
 
-## Learn More
+`npm run test:performance` is an opt-in disposable 100,000-message PostgreSQL benchmark. Its local results are observational and do not establish production latency or a whole-application speedup.
 
-To learn more about Next.js, take a look at the following resources:
+## Current evidence boundary
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Local unit, component and integration checks, typecheck, lint and a production build have passed for the current working candidate. The GitHub Actions workflow has not yet run against a remote candidate commit, and the independent QA ledger remains NOT RUN. See [browser evidence](docs/browser-assessment.md), [testing](docs/testing.md) and [the delivery ledger](docs/delivery-plan.md) for exact evidence and open gates.

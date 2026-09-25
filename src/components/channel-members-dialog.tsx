@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Users, UserPlus, LogOut, Search, X, UserMinus } from 'lucide-react';
+import { Users, UserPlus, LogOut, Search, UserMinus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';

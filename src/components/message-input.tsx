@@ -7,8 +7,8 @@ import { TypingIndicator } from '@/components/typing-indicator';
 import { useTypingIndicator } from '@/hooks/use-typing-indicator';
 import { X, File as FileIcon, FileText } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useSendMessage } from '@/hooks/use-send-message';
+import Image from 'next/image';
 import '@/styles/editor.css';
 
 interface MessageInputProps {
@@ -42,15 +42,13 @@ export function MessageInput({
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
-
   const { broadcastTyping } = useTypingIndicator(channelId, {
     id: currentUser?.id || 'unknown',
     name: currentUser?.name || 'Anonymous',
     avatarUrl: currentUser?.image || undefined,
   });
 
-  const { mutate: sendMessageMutation, isPending: isSubmitting } =
+  const { mutateAsync: sendMessageMutation, isPending: isSubmitting } =
     useSendMessage({
       channelId,
       parentId,
@@ -84,13 +82,19 @@ export function MessageInput({
   async function handleSubmit(html: string, text: string, scheduledAt?: Date) {
     if (!text.trim() && files.length === 0) return;
 
-    sendMessageMutation({ html, files, scheduledAt });
+    try {
+      const result = await sendMessageMutation({ html, files, scheduledAt });
+      if (result.error) return false;
+    } catch {
+      return false;
+    }
 
     // Clear local state immediately for optimistic feel
     setFiles([]);
     previewUrls.forEach((url) => URL.revokeObjectURL(url));
     setPreviewUrls([]);
     setPreviewImage(null);
+    return true;
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -151,9 +155,12 @@ export function MessageInput({
                 onClick={() => setPreviewImage(previewUrls[i])} // This triggers modal
               >
                 {file.type.startsWith('image/') ? (
-                  <img
+                  <Image
                     src={previewUrls[i]}
                     alt={file.name}
+                    width={80}
+                    height={80}
+                    unoptimized
                     className="h-full w-full object-cover"
                   />
                 ) : (
@@ -241,6 +248,7 @@ export function MessageInput({
         channelId={channelId}
         canSend={files.length > 0}
         onTyping={broadcastTyping}
+        draftKey={currentUser ? `slack-vibe:draft:${currentUser.id}:${channelId}:${parentId || 'root'}` : undefined}
       />
 
       {isSubmitting && (

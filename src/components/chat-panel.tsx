@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { MessageList } from '@/components/message-list';
@@ -11,13 +11,14 @@ import { PinnedBookmarkedPanel } from '@/components/pinned-bookmarked-panel';
 import { useThreadStore } from '@/stores/thread-store';
 import { useProfileStore } from '@/stores/profile-store';
 import { useNotificationStore } from '@/stores/notification-store';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 import { ChannelAccessDenied } from '@/components/channel/channel-access-denied';
+import { ForwardMessageDialog } from '@/components/forward-message-dialog';
 
 interface ChatPanelProps {
   channelId: string;
   workspaceId: string;
+  messagePlaceholder?: string;
   workspaceSlug: string;
   userId: string;
   userRole?: string;
@@ -49,6 +50,7 @@ export function ChatPanel({
   isChannelMember = true,
   lastReadAt,
   workspaceId,
+  messagePlaceholder,
 }: ChatPanelProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -89,11 +91,11 @@ export function ChatPanel({
         },
         (payload) => {
           // Check if it affects current user
-          if (payload.old && (payload.old as any).user_id === userId) {
+          if (payload.old && (payload.old as { user_id?: string }).user_id === userId) {
             if (payload.eventType === 'DELETE') {
               setIsMember(false);
             }
-          } else if (payload.new && (payload.new as any).user_id === userId) {
+          } else if (payload.new && (payload.new as { user_id?: string }).user_id === userId) {
             if (payload.eventType === 'INSERT') {
               setIsMember(true);
             }
@@ -114,20 +116,11 @@ export function ChatPanel({
     markChannelAsRead(channelId);
   }, [channelId, markChannelAsRead]);
 
-  if (!isMember) {
-    return (
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <ChannelAccessDenied />
-        </div>
-      </div>
-    );
-  }
-
   // Highlighted message for scroll-to and flash animation
   const [highlightedMessageId, setHighlightedMessageId] = useState<
     string | null
   >(null);
+  const [forwardMessageId, setForwardMessageId] = useState<string | null>(null);
 
   // Get thread and message from URL (for shareable links)
   const urlThreadId = searchParams.get('thread');
@@ -157,26 +150,42 @@ export function ChatPanel({
 
   // Handle message link highlight on initial load
   useEffect(() => {
-    if (urlMessageId) {
-      // If thread param also exists, delay to let thread load first
-      const delay = urlThreadId ? 600 : 0;
-      const timer = setTimeout(() => {
-        setHighlightedMessageId(urlMessageId);
-        // Clear highlight after 1 second
-        setTimeout(() => {
-          setHighlightedMessageId(null);
-          // Clear from URL
-          const params = new URLSearchParams(searchParams.toString());
-          params.delete('message');
-          const newUrl = params.toString()
-            ? `${pathname}?${params.toString()}`
-            : pathname;
-          router.replace(newUrl, { scroll: false });
-        }, 1000);
-      }, delay);
-      return () => clearTimeout(timer);
+    if (!urlMessageId) {
+      const clearTimer = setTimeout(() => setHighlightedMessageId(null), 0);
+      return () => clearTimeout(clearTimer);
     }
+
+    // If thread also opens, let it mount before highlighting the target.
+    const delay = urlThreadId ? 600 : 0;
+    let clearHighlightTimer: ReturnType<typeof setTimeout> | undefined;
+    const timer = setTimeout(() => {
+      setHighlightedMessageId(urlMessageId);
+      clearHighlightTimer = setTimeout(() => setHighlightedMessageId(null), 1000);
+    }, delay);
+    return () => {
+      clearTimeout(timer);
+      if (clearHighlightTimer) clearTimeout(clearHighlightTimer);
+    };
   }, [urlMessageId, urlThreadId, pathname, router, searchParams]);
+
+  const handleMessageContextExit = useCallback(() => {
+    setHighlightedMessageId(null);
+    const params = new URLSearchParams(searchParams.toString());
+    if (!params.has('message')) return;
+    params.delete('message');
+    const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
+    router.replace(newUrl, { scroll: false });
+  }, [pathname, router, searchParams]);
+
+  if (!isMember) {
+    return (
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <ChannelAccessDenied />
+        </div>
+      </div>
+    );
+  }
 
   const handleThreadSelect = (threadId: string) => {
     // Close profile sidebar when opening thread
@@ -264,6 +273,7 @@ export function ChatPanel({
         />
         <MessageList
           channelId={channelId}
+          jumpToMessageId={urlMessageId}
           onThreadSelect={handleThreadSelect}
           onProfileSelect={handleProfileSelectFromChannel}
           highlightedMessageId={highlightedMessageId}
@@ -272,11 +282,14 @@ export function ChatPanel({
           isArchived={isArchived}
           lastReadAt={lastReadAt}
           workspaceId={workspaceId}
+          onForward={setForwardMessageId}
+          onContextExit={handleMessageContextExit}
         />
 
         <MessageInput
           channelId={channelId}
           currentUser={currentUser}
+          placeholder={messagePlaceholder}
           isArchived={isArchived}
           isDisabled={!canPost}
           disabledMessage="You do not have permission to post in this channel"
@@ -292,15 +305,25 @@ export function ChatPanel({
           userRole={userRole}
           isArchived={isArchived}
           currentUser={currentUser}
+          onForward={setForwardMessageId}
         />
       )}
       {showProfile && (
         <ProfileSidebar
           workspaceSlug={workspaceSlug}
+          workspaceId={workspaceId}
           currentUserId={userId}
           onBack={previousView === 'thread' ? handleProfileBack : undefined}
         />
       )}
+      <ForwardMessageDialog
+        messageId={forwardMessageId}
+        actorId={userId}
+        workspaceSlug={workspaceSlug}
+        onOpenChange={(open) => {
+          if (!open) setForwardMessageId(null);
+        }}
+      />
     </div>
   );
 }

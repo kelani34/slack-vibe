@@ -23,6 +23,7 @@ import {
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface CreateChannelDialogProps {
   workspaceId: string;
@@ -32,6 +33,7 @@ export function CreateChannelDialog({
   workspaceId,
   children,
 }: CreateChannelDialogProps & { children?: React.ReactNode }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [type, setType] = useState('PUBLIC');
@@ -55,6 +57,7 @@ export function CreateChannelDialog({
       setOpen(false);
       setName('');
       setType('PUBLIC');
+      router.refresh();
     }
     setIsLoading(false);
   }
@@ -73,7 +76,7 @@ export function CreateChannelDialog({
         <DialogHeader>
           <DialogTitle>Create a channel</DialogTitle>
           <DialogDescription>
-            Channels are where your team communicates. They're best organized
+            Channels are where your team communicates. They&apos;re best organized
             around a topic.
           </DialogDescription>
         </DialogHeader>

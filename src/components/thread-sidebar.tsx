@@ -13,9 +13,11 @@ import { useEffect, useRef } from 'react';
 import { useProfileStore } from '@/stores/profile-store';
 
 // Group messages from same user within 5 minutes
+type ThreadMessageSummary = { userId: string; createdAt: Date | string };
+
 function shouldShowAvatar(
-  currentMessage: any,
-  previousMessage: any | undefined
+  currentMessage: ThreadMessageSummary,
+  previousMessage: ThreadMessageSummary | undefined
 ): boolean {
   if (!previousMessage) return true;
   if (currentMessage.userId !== previousMessage.userId) return true;
@@ -40,6 +42,7 @@ interface ThreadSidebarProps {
     name: string;
     image?: string | null;
   };
+  onForward?: (messageId: string) => void;
 }
 
 export function ThreadSidebar({
@@ -51,6 +54,7 @@ export function ThreadSidebar({
   userRole,
   isArchived = false,
   currentUser,
+  onForward,
 }: ThreadSidebarProps) {
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -81,9 +85,32 @@ export function ThreadSidebar({
           table: 'messages',
           filter: `parentId=eq.${parentMessageId}`,
         },
-        () => {
+        (payload: {
+          eventType: string;
+          new: {
+            id?: string;
+            channelId?: string;
+            parentId?: string | null;
+            scheduledAt?: Date | string | null;
+            isDeleted?: boolean;
+          };
+        }) => {
+          const reply = payload.new;
+          if (
+            payload.eventType !== 'INSERT' ||
+            reply.channelId !== channelId ||
+            reply.parentId !== parentMessageId ||
+            reply.scheduledAt != null ||
+            reply.isDeleted
+          ) return;
+
           queryClient.invalidateQueries({
             queryKey: ['messages', channelId, parentMessageId],
+            exact: true,
+          });
+          queryClient.invalidateQueries({
+            queryKey: ['messages', channelId],
+            exact: true,
           });
         }
       )
@@ -106,7 +133,7 @@ export function ThreadSidebar({
   };
 
   return (
-    <div className="flex h-full w-80 flex-col border-l bg-background">
+    <div className="absolute inset-0 z-20 flex h-full w-full flex-col border-l bg-background sm:static sm:w-80">
       {/* Header - fixed */}
       <div className="flex items-center justify-between border-b px-4 py-3 shrink-0">
         <h3 className="font-semibold">Thread</h3>
@@ -129,6 +156,7 @@ export function ThreadSidebar({
               message={parentMessage}
               showAvatar={true}
               onProfileSelect={handleProfileSelect}
+              onForward={onForward}
               showThreadIndicator={false}
               compact={true}
               channelId={channelId}
@@ -164,6 +192,7 @@ export function ThreadSidebar({
                     message={message}
                     showAvatar={showAvatar}
                     onProfileSelect={handleProfileSelect}
+                    onForward={onForward}
                     showThreadIndicator={false}
                     compact={true}
                     channelId={channelId}

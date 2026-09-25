@@ -16,11 +16,16 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { updateChannel, deleteChannel } from '@/actions/channel';
 import { useRouter } from 'next/navigation';
-import { ChannelPostingPermission } from '@prisma/client';
+import { ChannelPostingPermission, type Channel } from '@prisma/client';
 import { AlertTriangle } from 'lucide-react';
 
+type ChannelSettingsData = Pick<
+  Channel,
+  'id' | 'creatorId' | 'isArchived' | 'type' | 'postingPermission'
+> & { workspace: { slug: string } };
+
 interface SettingsTabProps {
-  channel: any;
+  channel: ChannelSettingsData;
   currentUserId: string;
   userRole: string; // WORKSPACE role
 }
@@ -48,11 +53,15 @@ export function SettingsTab({
     setIsLoading(false);
   }
 
-  async function handleVisibilityChange(value: 'PUBLIC' | 'PRIVATE') {
+  async function handleVisibilityChange(value: string) {
+    if (value !== 'PUBLIC' && value !== 'PRIVATE') return;
     setIsLoading(true);
     const result = await updateChannel(channel.id, { type: value });
     if (result.error) toast.error(result.error);
-    else toast.success('Channel visibility updated');
+    else {
+      toast.success('Channel visibility updated');
+      router.refresh();
+    }
     setIsLoading(false);
   }
 
@@ -62,7 +71,10 @@ export function SettingsTab({
       postingPermission: value,
     });
     if (result.error) toast.error(result.error);
-    else toast.success('Posting permissions updated');
+    else {
+      toast.success('Posting permissions updated');
+      router.refresh();
+    }
     setIsLoading(false);
   }
 
@@ -79,6 +91,7 @@ export function SettingsTab({
     else {
       toast.success('Channel deleted');
       router.push(`/${channel.workspace.slug}`);
+      router.refresh();
     }
     setIsLoading(false);
   }
@@ -87,7 +100,7 @@ export function SettingsTab({
     return (
       <div className="p-4 text-center text-muted-foreground flex flex-col items-center gap-2">
         <AlertTriangle className="h-8 w-8 text-yellow-500" />
-        <p>You don't have permission to manage this channel's settings.</p>
+        <p>You don&apos;t have permission to manage this channel&apos;s settings.</p>
       </div>
     );
   }
@@ -116,7 +129,7 @@ export function SettingsTab({
             <Label>Channel Visibility</Label>
             <Select
               value={channel.type}
-              onValueChange={(val: any) => handleVisibilityChange(val)}
+              onValueChange={handleVisibilityChange}
               disabled={isLoading}
             >
               <SelectTrigger>
@@ -138,7 +151,9 @@ export function SettingsTab({
             <Label>Who can post?</Label>
             <Select
               value={channel.postingPermission}
-              onValueChange={(val: any) => handlePermissionChange(val)}
+              onValueChange={(value) =>
+                handlePermissionChange(value as ChannelPostingPermission)
+              }
               disabled={isLoading}
             >
               <SelectTrigger>

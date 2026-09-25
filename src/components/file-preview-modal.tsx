@@ -3,11 +3,10 @@
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Download, ExternalLink, X, FileText } from 'lucide-react';
+import { Download, X, FileText } from 'lucide-react';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 interface FilePreviewModalProps {

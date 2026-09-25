@@ -2,11 +2,22 @@
 
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
 
-export async function getUserProfile(userId: string) {
+export async function getUserProfile(userId: string, workspaceId: string) {
   const session = await auth();
   if (!session?.user?.id) return null;
+
+  const [requester, target] = await Promise.all([
+    prisma.workspaceMember.findUnique({
+      where: { workspaceId_userId: { workspaceId, userId: session.user.id } },
+      select: { id: true },
+    }),
+    prisma.workspaceMember.findUnique({
+      where: { workspaceId_userId: { workspaceId, userId } },
+      select: { id: true },
+    }),
+  ]);
+  if (!requester || !target) return null;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -47,9 +58,8 @@ export async function updateProfile(data: {
         timezone: data.timezone,
       },
     });
-    revalidatePath('/');
     return { success: true };
-  } catch (error) {
+  } catch {
     return { error: 'Failed to update profile' };
   }
 }
@@ -71,8 +81,8 @@ export async function hideUser(hiddenUserId: string) {
       },
     });
     return { success: true };
-  } catch (error: any) {
-    if (error.code === 'P2002') {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
       return { error: 'User already hidden' };
     }
     return { error: 'Failed to hide user' };
@@ -181,7 +191,6 @@ export async function updateUserPreferences(preferences: {
       },
     });
 
-    revalidatePath('/settings');
     return { success: true, user };
   } catch (error) {
     console.error('Failed to update preferences:', error);

@@ -124,6 +124,7 @@ model WorkspaceMember {
 enum ChannelType {
   PUBLIC
   PRIVATE
+  DIRECT
 }
 
 enum ChannelPostingPermission {
@@ -138,6 +139,9 @@ model Channel {
   workspaceId String
   name        String
   type        ChannelType @default(PUBLIC)
+  directKey   String?
+  creationMutationId String? @unique(map: "channels_creation_mutation_id_key")
+  creationRequestHash String?
   topics      String[]    @default([])
   description String?
   isArchived  Boolean     @default(false)
@@ -159,6 +163,7 @@ model Channel {
   updatedAt   DateTime @updatedAt
 
   @@unique([workspaceId, name])
+  @@unique([workspaceId, directKey])
   @@map("channels")
 }
 
@@ -216,6 +221,8 @@ model Message {
   type        MessageType @default(REGULAR)
   channelId   String
   userId      String
+  clientMutationId String?
+  requestHash String?
   parentId    String?  // For threads
   scheduledAt DateTime? // For scheduled messages (null = send immediately)
   isPinned    Boolean  @default(false)
@@ -235,6 +242,10 @@ model Message {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@unique([userId, clientMutationId], map: "messages_user_client_mutation_id_key")
+  @@index([channelId, createdAt(sort: Desc), id(sort: Desc)], map: "messages_channel_activity_idx")
+  @@index([content(ops: raw("gin_trgm_ops"))], type: Gin, map: "messages_content_trgm_idx")
   
   @@map("messages")
 }
@@ -337,7 +348,7 @@ model Notification {
   
   createdAt    DateTime         @default(now())
   
+  @@index([userId, createdAt(sort: Desc), id(sort: Desc)], map: "notifications_user_activity_idx")
+  @@index([userId, isRead], map: "notifications_user_read_idx")
   @@map("notifications")
 }
-
-
