@@ -123,8 +123,9 @@ export function ProfileSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-11 w-11 sm:h-8 sm:w-8"
                 onClick={onBack}
+                aria-label="Back to conversation"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
@@ -136,15 +137,21 @@ export function ProfileSidebar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-11 w-11 sm:h-8 sm:w-8"
                 onClick={() => setShowEditDialog(true)}
+                aria-label="Edit profile"
               >
                 <Pencil className="h-4 w-4" />
               </Button>
             ) : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11 sm:h-8 sm:w-8"
+                    aria-label="More profile actions"
+                  >
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -175,8 +182,9 @@ export function ProfileSidebar({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-11 w-11 sm:h-8 sm:w-8"
               onClick={() => setActiveProfile(null)}
+              aria-label="Close profile"
             >
               <X className="h-4 w-4" />
             </Button>

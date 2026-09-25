@@ -333,16 +333,21 @@ export function MessageItem({
           : ''
       } ${isHighlighted ? 'message-highlight' : ''}`}
     >
-      {/* Floating action bar on hover */}
+      {/* Floating action bar */}
       {!message.isPending && (
-        <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <div className="flex items-center gap-0.5 bg-background border rounded-md shadow-sm p-0.5">
+        <div
+          role="toolbar"
+          aria-label="Message actions"
+          className="absolute -top-3 right-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 max-md:top-0 max-md:opacity-100"
+        >
+          <div className="flex items-center gap-0.5 rounded-md border bg-background p-0.5 shadow-sm max-md:border-transparent max-md:bg-transparent max-md:p-0 max-md:shadow-none">
             {onThreadSelect && !compact && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 max-md:hidden"
                 onClick={() => onThreadSelect(message.id)}
+                aria-label="Reply in thread"
                 title="Reply in thread"
               >
                 <MessageSquare className="h-4 w-4" />
@@ -356,7 +361,8 @@ export function MessageItem({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-7 w-7 max-md:hidden"
+                      aria-label="Add reaction"
                       title="Add reaction"
                     >
                       <Smile className="h-4 w-4" />
@@ -366,8 +372,9 @@ export function MessageItem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 max-md:hidden"
                   onClick={handleBookmark}
+                  aria-label={bookmarked ? 'Remove bookmark' : 'Bookmark message'}
                   title={bookmarked ? 'Remove bookmark' : 'Bookmark message'}
                 >
                   {bookmarked ? (
@@ -379,8 +386,11 @@ export function MessageItem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 max-md:hidden"
                   onClick={handlePin}
+                  aria-label={
+                    message.isPinned ? 'Unpin from channel' : 'Pin to channel'
+                  }
                   title={
                     message.isPinned ? 'Unpin from channel' : 'Pin to channel'
                   }
@@ -394,9 +404,10 @@ export function MessageItem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-7 w-7 max-md:hidden"
                   onClick={handleForward}
                   disabled={!onForward || isArchived}
+                  aria-label={onForward ? 'Forward message' : 'Forwarding unavailable in this view'}
                   title={onForward ? 'Forward message' : 'Forwarding unavailable in this view'}
                 >
                   <Forward className="h-4 w-4" />
@@ -408,13 +419,66 @@ export function MessageItem({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7"
+                  className="h-11 w-11 md:h-7 md:w-7"
+                  aria-label="More actions"
                   title="More actions"
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                {!isArchived && (
+                  <EmojiPicker
+                    onSelect={handleReaction}
+                    trigger={
+                      <DropdownMenuItem
+                        className="md:hidden"
+                        onSelect={(event) => event.preventDefault()}
+                      >
+                        <Smile className="h-4 w-4 mr-2" />
+                        Add reaction
+                      </DropdownMenuItem>
+                    }
+                  />
+                )}
+                {onThreadSelect && !compact && (
+                  <DropdownMenuItem
+                    className="md:hidden"
+                    onClick={() => onThreadSelect(message.id)}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Reply in thread
+                  </DropdownMenuItem>
+                )}
+                {!isArchived && (
+                  <>
+                    <DropdownMenuItem className="md:hidden" onClick={handleBookmark}>
+                      {bookmarked ? (
+                        <BookmarkCheck className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Bookmark className="h-4 w-4 mr-2" />
+                      )}
+                      {bookmarked ? 'Remove bookmark' : 'Bookmark message'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="md:hidden" onClick={handlePin}>
+                      {message.isPinned ? (
+                        <PinOff className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Pin className="h-4 w-4 mr-2" />
+                      )}
+                      {message.isPinned ? 'Unpin from channel' : 'Pin to channel'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="md:hidden"
+                      onClick={handleForward}
+                      disabled={!onForward}
+                    >
+                      <Forward className="h-4 w-4 mr-2" />
+                      {onForward ? 'Forward message' : 'Forwarding unavailable'}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="md:hidden" />
+                  </>
+                )}
                 <DropdownMenuItem onClick={handleCopyLink}>
                   <Link2 className="h-4 w-4 mr-2" />
                   Copy link
@@ -430,7 +494,7 @@ export function MessageItem({
                   !isArchived && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleBookmark}>
+                      <DropdownMenuItem className="max-md:hidden" onClick={handleBookmark}>
                         {bookmarked ? (
                           <>
                             <BookmarkCheck className="h-4 w-4 mr-2" />

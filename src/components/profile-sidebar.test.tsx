@@ -63,3 +63,23 @@ it('refreshes the workspace shell after starting a DM from a profile', async () 
   expect(fixture.push).toHaveBeenCalledWith('/acme/direct-1');
   expect(fixture.refresh).toHaveBeenCalledOnce();
 });
+
+it('names profile controls and keeps touch targets large on compact screens', () => {
+  render(
+    <ProfileSidebar
+      workspaceSlug="acme"
+      workspaceId="workspace"
+      currentUserId="current"
+      onBack={vi.fn()}
+    />,
+  );
+
+  for (const name of ['Back to conversation', 'More profile actions', 'Close profile']) {
+    expect(screen.getByRole('button', { name })).toHaveClass(
+      'h-11',
+      'w-11',
+      'sm:h-8',
+      'sm:w-8',
+    );
+  }
+});

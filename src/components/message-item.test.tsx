@@ -1,4 +1,5 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { PropsWithChildren } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
@@ -129,4 +130,52 @@ it('sanitizes system-message HTML before rendering legacy content', () => {
   expect(container).toHaveTextContent('Safe notice');
   expect(container.querySelector('img, script, [onerror]')).toBeNull();
   expect(container).not.toHaveTextContent('secret');
+});
+
+it('keeps message actions discoverable for keyboard and touch users', async () => {
+  const user = userEvent.setup();
+  const queryClient = new QueryClient();
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
+  render(
+    <MessageItem
+      message={{
+        id: 'accessible-actions',
+        channelId: 'channel-1',
+        userId: 'user-1',
+        parentId: null,
+        content: '<p>Actionable</p>',
+        type: 'REGULAR',
+        createdAt: new Date('2026-09-24T10:00:00Z'),
+        updatedAt: new Date('2026-09-24T10:00:00Z'),
+        isPinned: false,
+        isDeleted: false,
+        isEdited: false,
+        user: { id: 'user-1', name: 'Alex', avatarUrl: null },
+        attachments: [],
+        reactions: [],
+        replies: [],
+        _count: { replies: 0 },
+      }}
+      onThreadSelect={vi.fn()}
+      onForward={vi.fn()}
+    />,
+    { wrapper },
+  );
+
+  const toolbar = screen.getByRole('toolbar', { name: 'Message actions' });
+  expect(toolbar).toHaveClass('group-focus-within:opacity-100', 'max-md:opacity-100');
+  expect(screen.getByRole('button', { name: 'Reply in thread' })).toHaveClass('max-md:hidden');
+  expect(screen.getByRole('button', { name: 'Add reaction' })).toHaveClass('max-md:hidden');
+  expect(screen.getByRole('button', { name: 'More actions' })).toHaveClass(
+    'h-11',
+    'w-11',
+    'md:h-7',
+    'md:w-7',
+  );
+
+  await user.click(screen.getByRole('button', { name: 'More actions' }));
+  expect(await screen.findByRole('menuitem', { name: 'Add reaction' })).toHaveClass('md:hidden');
 });

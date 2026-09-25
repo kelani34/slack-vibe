@@ -21,13 +21,13 @@ The current product does not read as a generic generated dashboard. The conversa
 
 ## Priority findings
 
-### P1: Message actions are invisible during keyboard focus
+### P1: Message-action access — implemented, browser and QA evidence open
 
 - **Location:** `src/components/message-item.tsx:326` and `src/components/message-item.tsx:338`
 - **Category:** Accessibility and responsive interaction
-- **Impact:** The action bar starts at zero opacity and becomes visible only through `group-hover`. Its buttons can enter the tab order without the bar becoming visible. Touch users also lack a stable action reveal.
+- **Original impact:** The action bar started at zero opacity and became visible only through `group-hover`. Its buttons could enter the tab order without the bar becoming visible. Touch users also lacked a stable action reveal.
 - **Standard:** WCAG 2.1.1 Keyboard and 2.4.7 Focus Visible.
-- **Required resolution:** Reveal the action bar for `focus-within`, provide one persistent touch overflow affordance, keep action labels, and test focus entry/return plus compact interaction.
+- **Implemented slice:** The toolbar now has an explicit accessible name, reveals through `focus-within`, stays visible on compact layouts, exposes one visually quiet 44px overflow control, and moves reaction plus secondary compact actions into its menu. Component regression evidence covers the semantic toolbar, focus-visible class contract, compact visibility and target sizing; B13 verifies the menu and nested reaction picker at 390×844. Browser keyboard traversal, screen-reader output and physical touch-device QA remain open.
 
 ### P1: Activity and channel-detail surfaces use fixed desktop dimensions
 
@@ -36,12 +36,12 @@ The current product does not read as a generic generated dashboard. The conversa
 - **Impact:** A 500px activity popover and 600px fixed-height dialog can clip or crowd small viewports, enlarged text and browser chrome.
 - **Required resolution:** Use viewport-bounded width/height tokens and the mobile replacement sheet/page contract. Test 320px, 390px, tablet split view and 200% text.
 
-### P1: Icon controls are below the product touch target and some lack explicit names
+### P1: Icon control naming and touch size — profile/message slice implemented
 
 - **Location:** `src/components/profile-sidebar.tsx:135`, `src/components/profile-sidebar.tsx:147`, `src/components/profile-sidebar.tsx:175`, plus the 28px message action controls
 - **Category:** Accessibility and mobile
-- **Impact:** Small controls are harder to acquire on touch and an icon without an explicit accessible name can be ambiguous across assistive technology.
-- **Required resolution:** Keep the visual icon compact inside a larger hit area, add explicit names, and verify touch spacing and keyboard focus. The 44px design target is a product preference; the applicable WCAG 2.2 minimum and exceptions still govern acceptance.
+- **Original impact:** Small controls were harder to acquire on touch and profile icon controls had no explicit accessible names.
+- **Implemented slice:** Profile Back, Edit, More and Close controls now have explicit names and 44px compact hit areas; the persistent message overflow uses the same compact target. Component regressions cover Back, More, Close and the message overflow. Remaining icon controls still require the route-wide inventory, browser focus/touch checks and independent QA. The 44px design target is a product preference; the applicable WCAG 2.2 minimum and exceptions still govern acceptance.
 
 ### P1: Application states bypass semantic design tokens
 
@@ -105,7 +105,7 @@ No feature family is exempt from the shared design, mobile, motion, speed and ac
 ## Implementation order
 
 1. **D01, token roles:** replace state-bearing raw colors with reviewed semantic roles and contrast fixtures.
-2. **D02, interaction accessibility:** make message/profile/action controls visible and named across hover, keyboard and touch.
+2. **D02, interaction accessibility — in progress:** the message/profile priority slice is implemented with red/green component regressions; route-wide controls and browser/device/independent-QA evidence remain.
 3. **D03, adaptive surfaces:** replace fixed activity/dialog geometry and legacy viewport ownership with bounded desktop and mobile patterns.
 4. **D04, state language:** standardize skeleton, empty, progress, error, denied, archived and revoked states.
 5. **D05, motion foundation:** implement shared M01–M30 tokens and interruption/reduced-motion rules before expanding animation volume.
