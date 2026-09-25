@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useProfileStore } from '@/stores/profile-store';
 import { useQuery } from '@tanstack/react-query';
 import { differenceInMinutes } from 'date-fns';
@@ -192,8 +193,13 @@ export function ProfileSidebar({
         </div>
 
         {isLoading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm text-muted-foreground">Loading...</p>
+          <div role="status" aria-label="Loading profile" className="flex-1 p-6">
+            <div aria-hidden="true" className="flex flex-col items-center">
+              <Skeleton className="h-24 w-24 rounded-full" />
+              <Skeleton className="mt-4 h-6 w-40" />
+              <Skeleton className="mt-2 h-4 w-24" />
+              <Skeleton className="mt-6 h-10 w-36 rounded-md" />
+            </div>
           </div>
         ) : user ? (
           <div className="flex-1 overflow-auto">

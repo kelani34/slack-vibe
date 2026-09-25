@@ -3,6 +3,7 @@
 import { getThreadMessages, getMessageById } from '@/actions/message';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { MessageInput } from '@/components/message-input';
 import { MessageItem } from '@/components/message-item';
 import { createClient } from '@/lib/supabase/client';
@@ -180,7 +181,17 @@ export function ThreadSidebar({
 
           <div className="space-y-1">
             {isLoading ? (
-              <div className="text-sm text-muted-foreground">Loading...</div>
+              <div role="status" aria-label="Loading replies" className="space-y-4 py-2">
+                {Array.from({ length: 3 }, (_, index) => (
+                  <div key={index} aria-hidden="true" className="flex items-start gap-3">
+                    <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                    <div className="flex-1 space-y-2 pt-1">
+                      <Skeleton className="h-3 w-28" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
               replies?.map((message, index) => {
                 const previousMessage =

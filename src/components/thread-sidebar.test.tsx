@@ -1,10 +1,11 @@
-import { act, render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { ThreadSidebar } from './thread-sidebar';
 
 const fixture = vi.hoisted(() => ({
   handlers: [] as Array<(payload: { eventType: string; new: Record<string, unknown> }) => void>,
   invalidateQueries: vi.fn().mockResolvedValue(undefined),
+  repliesLoading: false,
 }));
 
 vi.mock('@/actions/message', () => ({
@@ -29,7 +30,7 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: undefined, isLoading: false }),
+  useQuery: () => ({ data: undefined, isLoading: fixture.repliesLoading }),
   useQueryClient: () => ({ invalidateQueries: fixture.invalidateQueries }),
 }));
 vi.mock('@/stores/profile-store', () => ({
@@ -40,6 +41,24 @@ vi.mock('@/stores/profile-store', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   fixture.handlers = [];
+  fixture.repliesLoading = false;
+});
+
+it('shows an accessible reply-shaped skeleton while replies load', () => {
+  fixture.repliesLoading = true;
+  const { container } = render(
+    <ThreadSidebar
+      parentMessageId="root-1"
+      channelId="channel-1"
+      onClose={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByRole('status', { name: 'Loading replies' })).toBeInTheDocument();
+  const skeletons = container.querySelectorAll('[data-slot="skeleton"]');
+  expect(skeletons).toHaveLength(9);
+  skeletons.forEach((skeleton) => expect(skeleton).toHaveClass('motion-reduce:animate-none'));
+  expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
 });
 
 it('refreshes the thread and root timeline when a reply arrives', () => {
