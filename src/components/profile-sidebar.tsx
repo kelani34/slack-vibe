@@ -55,7 +55,7 @@ export function ProfileSidebar({
   const [showEditDialog, setShowEditDialog] = useState(false);
 
   const { data: user, isLoading, isError, refetch } = useQuery({
-    queryKey: ['user-profile', activeProfileUserId, workspaceId],
+    queryKey: ['user-profile', activeProfileUserId, workspaceId, currentUserId],
     queryFn: () =>
       activeProfileUserId ? getUserProfile(activeProfileUserId, workspaceId) : null,
     enabled: !!activeProfileUserId,

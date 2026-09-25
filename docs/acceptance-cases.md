@@ -465,8 +465,8 @@ Owner: W13. Required layers: I,C,E. State: **PLANNED / NOT RUN**. See [phase map
 - **TC-F36-04** — Upload failure leaves prior avatar and profile intact.
 - **TC-F36-05** — Profile field visibility respects workspace/directory policy.
 - **TC-F36-06** — Concurrent profile edits reconcile or report conflict and stay usable on phone keyboard.
-- **TC-F36-07** — A member profile opened in another workspace cannot reuse a profile response cached under a different workspace authorization scope.
-- Developer evidence: `src/components/profile-sidebar.test.tsx` proves the member-profile Query key includes the authorizing workspace ID. Cross-workspace permission revocation and independent QA remain NOT RUN.
+- **TC-F36-07** — Profile and hover-card data is returned only when both viewer and target are current members of the requested workspace; cached entries are keyed by target, workspace, and viewer and cannot be reused across those scopes.
+- Developer evidence: `tests/integration/user-access.test.ts` first reproduced an authenticated outsider receiving member contact details, then proves outsider denial and authorized-member access. `src/components/profile-sidebar.test.tsx` and `src/components/user-hover-card.test.tsx` verify viewer/workspace/target keys. Profile edit invalidates both profile and card entries. Membership revocation during an already-open view and independent QA remain NOT RUN.
 
 ### F37: Hide/unhide users
 

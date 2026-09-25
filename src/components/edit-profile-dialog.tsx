@@ -116,6 +116,7 @@ export function EditProfileDialog({
     } else {
       toast.success('Profile updated');
       queryClient.invalidateQueries({ queryKey: ['user-profile', user.id] });
+      queryClient.invalidateQueries({ queryKey: ['user-card', user.id] });
       router.refresh();
       onOpenChange(false);
     }

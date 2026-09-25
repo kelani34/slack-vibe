@@ -141,30 +141,41 @@ export async function getUserDetailsForCard(userId: string, workspaceId: string)
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  const data = await prisma.workspaceMember.findUnique({
-    where: {
-      workspaceId_userId: {
-        workspaceId,
-        userId,
-      },
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          displayName: true,
-          image: true,
-          avatarUrl: true,
-          timezone: true,
-          status: true,
-          email: true,
+  const [requester, data] = await Promise.all([
+    prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: {
+          workspaceId,
+          userId: session.user.id,
         },
       },
-    },
-  });
+      select: { id: true },
+    }),
+    prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: {
+          workspaceId,
+          userId,
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            image: true,
+            avatarUrl: true,
+            timezone: true,
+            status: true,
+            email: true,
+          },
+        },
+      },
+    }),
+  ]);
 
-  if (!data) return null;
+  if (!requester || !data) return null;
 
   return {
     ...data.user,
