@@ -2,8 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { useSession } = vi.hoisted(() => ({ useSession: vi.fn() }));
+const { useSession, replace } = vi.hoisted(() => ({ useSession: vi.fn(), replace: vi.fn() }));
 vi.mock('next-auth/react', () => ({ useSession }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
 
 import { SessionCacheBoundary } from './session-cache-boundary';
 
@@ -16,7 +17,10 @@ function renderBoundary(queryClient: QueryClient) {
 }
 
 describe('session cache boundary', () => {
-  beforeEach(() => useSession.mockReset());
+  beforeEach(() => {
+    useSession.mockReset();
+    replace.mockReset();
+  });
 
   it('clears private query data after another tab signs out', async () => {
     const queryClient = new QueryClient();
@@ -25,6 +29,7 @@ describe('session cache boundary', () => {
 
     const view = renderBoundary(queryClient);
     await waitFor(() => expect(queryClient.getQueryData(['messages', 'private-channel'])).toEqual(['private message']));
+    window.history.replaceState({}, '', '/team/channel?focus=message-1');
 
     useSession.mockReturnValue({ status: 'unauthenticated', data: null });
     view.rerender(
@@ -34,6 +39,7 @@ describe('session cache boundary', () => {
     );
 
     await waitFor(() => expect(queryClient.getQueryData(['messages', 'private-channel'])).toBeUndefined());
+    expect(replace).toHaveBeenCalledWith('/login?callbackUrl=%2Fteam%2Fchannel%3Ffocus%3Dmessage-1');
   });
 
   it('clears the previous account cache when the authenticated actor changes', async () => {

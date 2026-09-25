@@ -58,7 +58,7 @@ Owner: W01, W02. Required layers: I,E. State: **PLANNED / NOT RUN**. See [phase 
 - **TC-F01-05** — Logout in one tab causes protected caches and live subscriptions to clear in the other tab after session reconciliation.
 - **TC-F01-06** — Wrong callback origin/configuration produces diagnosable redacted failure; real local and deployed round trips pass after B02/B03 repair.
 - **TC-F01-07** — Selecting Log out clears the current tab's private React Query cache before the session ends, while clearing only the signing-out actor's local drafts.
-- Developer evidence: `src/components/nav-user.test.tsx` proves a cached private message and the signing-out actor's draft are cleared before returning to login; another actor's local draft remains. Session-level cache tests exercise propagated unauthenticated state and actor changes. Real two-tab Auth.js broadcast, live subscription teardown and independent QA remain NOT RUN.
+- Developer evidence: `src/components/nav-user.test.tsx` proves a cached private message and the signing-out actor's draft are cleared before returning to login; another actor's local draft remains. `src/components/session-cache-boundary.test.tsx` proves propagated unauthenticated state clears the cache and navigates to login with the local path preserved, and that actor changes clear cache. Real two-tab Auth.js broadcast, live subscription teardown and independent QA remain NOT RUN.
 
 ### F02: Workspace create/list/switch
 
