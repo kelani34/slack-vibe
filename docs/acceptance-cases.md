@@ -4,7 +4,7 @@
 
 ## Status, oracle and fixtures
 
-**651 concrete scenarios are catalogued; independent QA is PLANNED / NOT RUN.** They cover 107 executable F requirements; F48 is the historical umbrella mapped to detailed requirements, not a dummy executable feature. This is the baseline six cases per executable requirement (642), six additional send/retry cases under F17, and additional group-DM intent-retry, forwarding destination-state, and lazy profile-query cases under F14, F22, and F13. A small subset now has developer TDD evidence, identified under the relevant features below; that does not count as independent QA or mean every acceptance dimension ran. This catalogue is not a guarantee that every unknown defect is enumerated.
+**652 concrete scenarios are catalogued; independent QA is PLANNED / NOT RUN.** They cover 107 executable F requirements; F48 is the historical umbrella mapped to detailed requirements, not a dummy executable feature. This is the baseline six cases per executable requirement (642), six additional send/retry cases under F17, and additional group-DM intent-retry, forwarding destination-state, lazy profile-query and motion-token foundation cases under F14, F22, F13 and F42. A small subset now has developer TDD evidence, identified under the relevant features below; that does not count as independent QA or mean every acceptance dimension ran. This catalogue is not a guarantee that every unknown defect is enumerated.
 
 Every scenario has a stable ID `TC-Fnn-01…06`. When a scenario contains multiple outcomes or environments, split it into named assertions/data rows (`.a`, `.b`, etc.) with actual fixture/step/expected-result evidence. Six is an organizing convention, not a cap. Apply the universal cases below to **each operation** in a feature; feature-specific statements and the owning detailed spec supply its oracle. No "covered by happy path" shortcut for a different role, API, route or state.
 
@@ -527,6 +527,7 @@ Owner: W17. Required layers: C,E,D. State: **PLANNED / NOT RUN**. See [phase map
 - **TC-F42-04** — Navigation/unmount stops scoped animations and restores focus to a valid target without leaking work into the next route.
 - **TC-F42-05** — Incoming messages, unread movement, DM participant changes and history prepend preserve reading position; intentional new-row/avatar feedback does not reorder content under the reader.
 - **TC-F42-06** — Representative animations pass measured 60fps/mobile frame and input budgets; animated and reduced-motion visual states are reviewed at normal and slow playback.
+- **TC-F42-07** — Shared timing/easing/distance tokens drive existing motion consumers, and reduced-motion overrides remove duration, stagger and travel without removing the resulting state.
 
 ### F43: Performance/caching
 

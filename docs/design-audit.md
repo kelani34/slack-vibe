@@ -73,7 +73,8 @@ The current product does not read as a generic generated dashboard. The conversa
 - **Location:** `src/app/globals.css:6`
 - **Category:** Motion and performance
 - **Impact:** The DM avatar stack and message highlight have precise, interruptible transform/opacity motion, but most M01–M30 behaviors remain specified rather than implemented.
-- **Required resolution:** Build the shared motion tokens first, then add feature-owned transitions with reduced-motion equivalents and frame evidence. Avoid generic page entrances and layout-property animation.
+- **Implemented foundation, 25 September 2026:** Shared duration, easing, travel and stagger tokens now drive the existing avatar-stack and message-highlight animations. Reduced-motion overrides set duration, stagger and travel tokens to zero while preserving static highlight focus feedback.
+- **Remaining:** Migrate feature-owned transitions to the shared system, then verify interruption, lifecycle cleanup, reduced-motion visuals and mobile frame/input budgets. Do not infer broad motion coverage from the token foundation. Avoid generic page entrances and layout-property animation.
 
 ## Component coverage
 
@@ -112,7 +113,7 @@ No feature family is exempt from the shared design, mobile, motion, speed and ac
 2. **D02, interaction accessibility — source implementation complete:** app-owned icon controls have source-wide naming and shared compact-target contracts, plus exact-artifact phone evidence; keyboard, assistive-technology, physical-device and independent-QA evidence remain.
 3. **D03, adaptive surfaces — source implementation complete:** shell, Dialog, Popover, Activity, channel details and file preview use dynamic viewport bounds with 320×568 and 390×844 exact-artifact evidence; tablet, zoom, keyboard, focus-return, physical-device and independent-QA evidence stay open.
 4. **D04, state language — in progress:** profile, thread, channel-member and member-hover-card loading use accessible, surface-shaped states with reduced-motion behavior; profile, thread, both channel-member queries, forwarding destination lookup and hover-card profile reads have retry paths, preserving cached content during failed refreshes. Hover-card detail queries wait until open to avoid unused per-author requests. Cross-route empty/progress/error/denied/archived/revoked consistency remains open.
-5. **D05, motion foundation:** implement shared M01–M30 tokens and interruption/reduced-motion rules before expanding animation volume.
+5. **D05, motion foundation — token layer implemented:** shared timing/easing/travel/stagger variables, reduced-motion overrides and two existing CSS consumers are in place; M01–M30 feature adoption, interruption, cleanup and frame evidence remain open.
 6. **D06, route evidence:** capture desktop, phone and tablet references for each enabled route family and link the artifacts to the QA ledger.
 
 ## Definition of design done

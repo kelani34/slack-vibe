@@ -51,6 +51,10 @@ Emil Kowalski's [You Don't Need Animations](https://emilkowal.ski/ui/you-dont-ne
 | Panel travel | 8–12px | Contextual panel, not entire app |
 | Press scale | 0.98 | Pointer button feedback only; no text blur from large scale |
 
+### D05 foundation implementation
+
+The duration, easing, travel and short-stagger values above are available as shared CSS custom properties in `src/app/globals.css`. The existing group-DM avatar stack and message-target highlight now consume these tokens. Under `prefers-reduced-motion: reduce`, shared duration, delay and distance variables become zero; the message target retains a static outline so the location cue remains visible. A design-token contract verifies these values, reduced-motion overrides and both consumers. Browser evidence [B22](browser-assessment.md) verifies the current group-DM avatar/header/composer surface in the motion worktree, but does not measure animation timing or emulate reduced motion. This is the motion foundation only: it does not mean M01–M30 or feature-level interruption/cleanup behavior is implemented.
+
 Avoid uncontrolled bounce and elastic overshoot. A damped spring-like settle may be used for a meaningful object or media transition when it is interruptible and does not make text or controls wobble. Under reduced motion, remove displacement and choreography; preserve the state change with an instant update, short opacity/color transition or static equivalent. Do not stretch a simple transition to 300–500ms for polish.
 
 ## Interaction catalogue
