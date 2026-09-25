@@ -489,12 +489,50 @@ describe('message access boundaries (F04 / A01-A03)', () => {
   });
 
   it('does not expose scheduled messages to a member outside the channel', async () => {
-    const { channel, message } = await fixture();
+    const { workspace, channel, message } = await fixture();
     await prisma.message.update({
       where: { id: message.id },
       data: { scheduledAt: new Date(Date.now() + 60_000) },
     });
-    expect(await getScheduledMessages(channel.id)).toEqual([]);
+    expect(await getScheduledMessages(channel.id, workspace.id)).toEqual([]);
+  });
+
+  it('does not expose scheduled messages through a stale channel membership after workspace removal', async () => {
+    const { workspace, channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    await prisma.message.create({
+      data: {
+        channelId: channel.id,
+        userId: actor.id,
+        content: 'private future message',
+        scheduledAt: new Date(Date.now() + 60_000),
+      },
+    });
+
+    await prisma.workspaceMember.delete({
+      where: { workspaceId_userId: { workspaceId: workspace.id, userId: actor.id } },
+    });
+
+    expect(await getScheduledMessages(channel.id, workspace.id)).toEqual([]);
+  });
+
+  it('returns only fields needed to render the current actor\'s scheduled messages', async () => {
+    const { workspace, channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    await prisma.message.create({
+      data: {
+        channelId: channel.id,
+        userId: actor.id,
+        content: 'my future message',
+        scheduledAt: new Date(Date.now() + 60_000),
+      },
+    });
+
+    const [scheduled] = await getScheduledMessages(channel.id, workspace.id);
+
+    expect(scheduled).toMatchObject({ channelId: channel.id, content: 'my future message' });
+    expect(scheduled).not.toHaveProperty('user');
+    expect(scheduled).not.toHaveProperty('attachments');
   });
 
   it('edits and sends the current user\'s future scheduled message', async () => {

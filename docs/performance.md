@@ -166,6 +166,10 @@ These extend the original cache matrix for [new routes](routes.md). They are pro
 
 The member hover card uses a viewer/workspace/target-scoped TanStack Query cache (`staleTime` five minutes) and enables its query only while the card is open and a viewer identity is known. This prevents a message list from eagerly requesting profile details for every rendered author and prevents cache reuse across viewers or workspace scopes. Calls without an authenticated viewer ID cannot fetch or cache private member details. The server action checks that both requester and target remain workspace members before returning details. Profile edits invalidate both profile and card prefixes; live membership revocation while an open view remains mounted still needs explicit evidence. Component tests verify lazy loading, scope, retry and retained cached content after a failed background refresh. This reduces query volume and closes a demonstrated authorization leak; it is not a measured page-load or 10× latency claim. Validate request reduction with network traces on a populated conversation and a production build before assigning a quantitative budget.
 
+### Scheduled-draft reads
+
+The channel composer scheduled-message query now keys by actor, workspace, channel and parent thread. It stays disabled until the caller has an actor ID, checks both workspace and channel membership before reading, and selects only ID/channel/content/parent/scheduled time. The previous channel-only membership check allowed a stale channel-membership row to reveal pending content after workspace removal; an integration regression reproduces and closes that boundary. The query remains polled every ten seconds and no production polling/load measurement exists; evaluate visibility-aware polling and schedule-update patching separately.
+
 | Data | Scope / freshness | Update and access policy |
 |---|---|---|
 | Home summary | Actor/workspace; 15–30s, first 5–10 rows per section | Reuse summary queries; invalidate affected section on send/read/draft changes; no fan-out to every history |

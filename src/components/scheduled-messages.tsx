@@ -29,6 +29,8 @@ import { messageHtmlToText, sanitizeMessageHtml } from '@/lib/message-html';
 
 interface ScheduledMessagesProps {
   channelId: string;
+  workspaceId: string;
+  actorId?: string;
   parentId?: string; // For thread-specific scheduled messages
 }
 
@@ -141,16 +143,23 @@ export function ScheduledMessageActions({
 
 export function ScheduledMessages({
   channelId,
+  workspaceId,
+  actorId,
   parentId,
 }: ScheduledMessagesProps) {
   const queryClient = useQueryClient();
-  const queryKey = parentId
-    ? ['scheduled-messages', channelId, parentId]
-    : ['scheduled-messages', channelId];
+  const queryKey = [
+    'scheduled-messages',
+    actorId ?? null,
+    workspaceId,
+    channelId,
+    parentId ?? null,
+  ];
 
   const { data: messages } = useQuery({
     queryKey,
-    queryFn: () => getScheduledMessages(channelId, parentId),
+    queryFn: () => getScheduledMessages(channelId, workspaceId, parentId),
+    enabled: !!actorId,
     refetchInterval: 10000,
   });
 

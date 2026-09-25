@@ -428,33 +428,46 @@ export async function getMessages(channelId: string, cursor?: string) {
 
 export async function getScheduledMessages(
   channelId: string,
-  parentId?: string
+  workspaceId: string,
+  parentId?: string,
 ) {
   const session = await auth();
   if (!session?.user?.id) return [];
 
-  const member = await prisma.channelMember.findUnique({
-    where: { channelId_userId: { channelId, userId: session.user.id } },
-    select: { id: true },
-  });
-  if (!member) return [];
+  const [workspaceMember, channelMember] = await Promise.all([
+    prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: { workspaceId, userId: session.user.id },
+      },
+      select: { id: true },
+    }),
+    prisma.channel.findFirst({
+      where: {
+        id: channelId,
+        workspaceId,
+        members: { some: { userId: session.user.id } },
+      },
+      select: { id: true },
+    }),
+  ]);
+  if (!workspaceMember || !channelMember) return [];
 
-  // Get scheduled messages for this user in this channel (and optionally thread)
-  const messages = await prisma.message.findMany({
+  return prisma.message.findMany({
     where: {
       channelId,
       userId: session.user.id,
       parentId: parentId || null, // null for channel, parentId for threads
       scheduledAt: { gt: new Date() },
     },
-    include: {
-      user: true,
-      attachments: true,
+    select: {
+      id: true,
+      channelId: true,
+      content: true,
+      parentId: true,
+      scheduledAt: true,
     },
     orderBy: { scheduledAt: 'asc' },
   });
-
-  return messages;
 }
 
 export async function cancelScheduledMessage(messageId: string) {

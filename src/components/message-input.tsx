@@ -252,7 +252,12 @@ export function MessageInput({
         placeholder={placeholder}
         compact={compact}
         toolbarExtra={
-          <ScheduledMessages channelId={channelId} parentId={parentId} />
+          <ScheduledMessages
+            actorId={currentUserId}
+            workspaceId={workspaceId}
+            channelId={channelId}
+            parentId={parentId}
+          />
         }
         channelId={channelId}
         canSend={files.length > 0}

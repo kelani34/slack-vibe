@@ -373,6 +373,7 @@ Owner: W07. Required layers: U,I,E. State: **PLANNED / NOT RUN**. See [phase map
 - **TC-F28-04** — Cancel, edit, send-now and publish races resolve to one valid terminal outcome.
 - **TC-F28-05** — Publisher rechecks membership/posting/archive at delivery and surfaces denied/failed state.
 - **TC-F28-06** — Worker crash/retry, past time, DST ambiguity and changed clock preserve stable intent and ordering.
+- Developer evidence: `src/components/scheduled-messages.test.tsx` verifies actor/workspace/channel/thread key scope and that the query is disabled without an authenticated actor ID. `tests/integration/message-access.test.ts` reproduces stale channel membership after workspace removal, verifies denial, and checks that the authorized scheduled-message result omits unused user and attachment relations. Publication lifecycle and independent QA remain NOT RUN.
 
 ### F29: Attachment upload
 
