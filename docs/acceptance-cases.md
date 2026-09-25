@@ -71,7 +71,7 @@ Owner: W04. Required layers: I,E. State: **PLANNED / NOT RUN**. See [phase mappi
 
 ### F03: Invite-code join
 
-Owner: W02, W15. Required layers: I,E. State: **PLANNED / NOT RUN**. See [phase mapping](delivery-traceability.md).
+Owner: W02, W15. Required layers: I,E. State: **DEVELOPER-TESTED SLICE / INDEPENDENT QA NOT RUN**. See [phase mapping](delivery-traceability.md).
 
 - **TC-F03-01** — Valid scoped invitation joins the intended workspace with the intended minimum role.
 - **TC-F03-02** — Expired, revoked and exhausted invitations reject acceptance without membership creation.
@@ -134,6 +134,7 @@ Owner: W02, W15. Required layers: I,E. State: **PLANNED / NOT RUN**. See [phase 
 - **TC-F08-04** — Simultaneous add/remove converges to the committed state without duplicate membership rows.
 - **TC-F08-05** — Leaving a channel closes its thread/file/call access and chooses a safe navigation fallback.
 - **TC-F08-06** — Failure leaves prior membership visible with retry; a repeated desired-state operation is idempotent.
+- Developer evidence: `src/components/channel/members-tab.test.tsx` covers retryable errors for the current-member and add-member lists in both the Members tab and member dialog, plus cached current-member retention after refresh failure. Membership authorization, concurrent add/remove, full lifecycle and independent QA remain NOT RUN.
 
 ### F09: Channel metadata and privacy
 

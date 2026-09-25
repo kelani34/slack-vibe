@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ChannelMembersSkeleton } from '@/components/channel/channel-members-skeleton';
+import { ChannelMembersQueryState } from '@/components/channel/channel-members-query-state';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Users, UserPlus, LogOut, Search, UserMinus } from 'lucide-react';
 import { useState } from 'react';
@@ -47,13 +48,22 @@ export function ChannelMembersDialog({
   const queryClient = useQueryClient();
   const router = useRouter();
 
-  const { data: members, isLoading } = useQuery({
+  const {
+    data: members,
+    isLoading,
+    isError: membersError,
+    refetch: refetchMembers,
+  } = useQuery({
     queryKey: ['channel-members', channelId],
     queryFn: () => getChannelMembers(channelId),
     enabled: isOpen,
   });
 
-  const { data: availableMembers } = useQuery({
+  const {
+    data: availableMembers,
+    isError: availableMembersError,
+    refetch: refetchAvailableMembers,
+  } = useQuery({
     queryKey: ['available-members', channelId, workspaceId],
     queryFn: () => getWorkspaceMembersNotInChannel(workspaceId, channelId),
     enabled: isOpen && showAddMembers,
@@ -169,46 +179,53 @@ export function ChannelMembersDialog({
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Add to channel</h4>
               <ScrollArea className="h-[150px]">
-                {filteredAvailable?.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-2">
-                    No available members
-                  </p>
-                ) : (
-                  <div className="space-y-1">
-                    {filteredAvailable?.map((user) => (
-                      <div
-                        key={user.id}
-                        className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage
-                              src={user.avatarUrl || user.image || ''}
-                            />
-                            <AvatarFallback>
-                              {user.name?.[0] || '?'}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="text-sm font-medium">
-                              {user.name || 'Unknown'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {user.email}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleAddMember(user.id)}
+                <ChannelMembersQueryState
+                  isError={availableMembersError}
+                  hasData={availableMembers !== undefined}
+                  subject="available members"
+                  onRetry={() => void refetchAvailableMembers()}
+                >
+                  {filteredAvailable?.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">
+                      No available members
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      {filteredAvailable?.map((user) => (
+                        <div
+                          key={user.id}
+                          className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50"
                         >
-                          <UserPlus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage
+                                src={user.avatarUrl || user.image || ''}
+                              />
+                              <AvatarFallback>
+                                {user.name?.[0] || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">
+                                {user.name || 'Unknown'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {user.email}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleAddMember(user.id)}
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ChannelMembersQueryState>
               </ScrollArea>
             </div>
             <Separator />
@@ -219,53 +236,62 @@ export function ChannelMembersDialog({
         <ScrollArea className="h-[250px]">
           {isLoading ? (
             <ChannelMembersSkeleton />
-          ) : filteredMembers?.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              No members found
-            </p>
           ) : (
-            <div className="space-y-1">
-              {filteredMembers?.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage
-                        src={member.user.avatarUrl || member.user.image || ''}
-                      />
-                      <AvatarFallback>
-                        {member.user.name?.[0] || '?'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium">
-                        {member.user.name || 'Unknown'}
-                        {member.user.id === currentUserId && (
-                          <span className="text-xs text-muted-foreground ml-1">
-                            (you)
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {member.user.email}
-                      </p>
-                    </div>
-                  </div>
-                  {member.user.id !== currentUserId && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleRemoveMember(member.user.id)}
+            <ChannelMembersQueryState
+              isError={membersError}
+              hasData={members !== undefined}
+              subject="channel members"
+              onRetry={() => void refetchMembers()}
+            >
+              {filteredMembers?.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  No members found
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {filteredMembers?.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50"
                     >
-                      <UserMinus className="h-4 w-4" />
-                    </Button>
-                  )}
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage
+                            src={member.user.avatarUrl || member.user.image || ''}
+                          />
+                          <AvatarFallback>
+                            {member.user.name?.[0] || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">
+                            {member.user.name || 'Unknown'}
+                            {member.user.id === currentUserId && (
+                              <span className="text-xs text-muted-foreground ml-1">
+                                (you)
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {member.user.email}
+                          </p>
+                        </div>
+                      </div>
+                      {member.user.id !== currentUserId && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleRemoveMember(member.user.id)}
+                        >
+                          <UserMinus className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </ChannelMembersQueryState>
           )}
         </ScrollArea>
       </DialogContent>
