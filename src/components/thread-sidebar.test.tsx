@@ -11,6 +11,7 @@ const fixture = vi.hoisted(() => ({
   repliesData: undefined as Array<{ id: string; userId: string; createdAt: string }> | undefined,
   refetchReplies: vi.fn(),
   queryKeys: [] as unknown[][],
+  queryEnabled: [] as boolean[],
 }));
 
 vi.mock('@/actions/message', () => ({
@@ -35,8 +36,9 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
+  useQuery: ({ queryKey, enabled }: { queryKey: unknown[]; enabled?: boolean }) => {
     fixture.queryKeys.push(queryKey);
+    fixture.queryEnabled.push(enabled ?? true);
     return {
       data: fixture.repliesData,
       isLoading: fixture.repliesLoading,
@@ -58,6 +60,20 @@ beforeEach(() => {
   fixture.repliesError = false;
   fixture.repliesData = undefined;
   fixture.queryKeys = [];
+  fixture.queryEnabled = [];
+});
+
+it('does not fetch parent or reply data until the viewer identity is known', () => {
+  render(
+    <ThreadSidebar
+      parentMessageId="root-1"
+      channelId="channel-1"
+      workspaceId="workspace-1"
+      onClose={vi.fn()}
+    />,
+  );
+
+  expect(fixture.queryEnabled).toEqual([false, false]);
 });
 
 it('scopes the parent and reply caches to the actor and workspace', () => {

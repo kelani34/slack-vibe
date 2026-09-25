@@ -93,7 +93,7 @@ All client keys include actor identity and workspace where visibility can vary. 
 | Channel summaries | Query: actor/workspace/channels | stale 30s; GC 10m | Membership/archive/rename/star/unread events; authorized reconnect refresh |
 | Current timeline pages | Query: actor/workspace/channel/timeline | stale 15–30s plus live updates; GC 5m after inactive | Send/edit/delete/reaction/publication and reconnect; membership purge |
 | Older history pages | Same paginated cache, bounded page count | Preserve while reading; revalidate edited/deleted rows | Start at 10 pages cap; anchor-aware eviction; never silently lose selected message |
-| Thread pages | Query: actor/workspace/channel/parent/thread | stale 15–30s; GC 5m | Replies/edit/delete/reaction and parent access; same canonical message contract |
+| Thread pages | Query: actor/workspace/channel/parent/thread; query stays disabled until actor identity is available | stale 15–30s; GC 5m | Replies/edit/delete/reaction and parent access; same canonical message contract; purge on membership revocation |
 | Member suggestions | Query: actor/workspace/channel/members | stale 60s; GC 5m | Membership/profile change and revocation; local filtering at small size |
 | Profile/hover summary | Query: viewer/workspace/target user/profile | stale 5m; GC 10m | Profile edit invalidates profile and card prefixes; role change and workspace removal require revalidation; server checks viewer and target membership; no cross-viewer/workspace reuse or cross-workspace email leak |
 | Pins/bookmarks/stars | Query: actor/workspace and source scope | stale 30–60s; GC 5m | Desired-state mutation updates affected keys; source deletion/revocation purges |

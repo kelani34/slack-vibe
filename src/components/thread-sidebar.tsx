@@ -81,12 +81,14 @@ export function ThreadSidebar({
   const { data: parentMessage } = useQuery({
     queryKey: parentMessageKey,
     queryFn: () => getMessageById(parentMessageId),
+    enabled: !!currentUserId,
   });
 
   // Fetch replies
   const { data: replies, isLoading, isError, refetch } = useQuery({
     queryKey: threadKey,
     queryFn: () => getThreadMessages(parentMessageId),
+    enabled: !!currentUserId,
   });
 
   // Realtime subscription
