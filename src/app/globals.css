@@ -17,6 +17,18 @@
   --motion-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --motion-distance-feedback: 4px;
   --motion-distance-panel: 10px;
+  --motion-scale-press: 0.98;
+}
+
+[data-slot="button"] {
+  transition-property: background-color, color, transform;
+  transition-duration: var(--motion-duration-fast);
+  transition-timing-function: var(--motion-ease-out);
+}
+
+[data-slot="button"]:active:not(:disabled) {
+  transform: scale(var(--motion-scale-press));
+  transition-duration: var(--motion-duration-press);
 }
 
 .message-highlight {
@@ -70,6 +82,7 @@
     --motion-stagger-short: 0ms;
     --motion-distance-feedback: 0px;
     --motion-distance-panel: 0px;
+    --motion-scale-press: 1;
   }
 
   .dm-avatar-stack > [data-slot="avatar"] {

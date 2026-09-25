@@ -150,7 +150,7 @@ Each executable requirement links directly to its six planned scenario IDs, supp
 | F39 | Search keyboard entry and navigation | W14, W16 | P02, P04 | [TC-F39-01…06](acceptance-cases.md#f39-search-keyboard-entry-and-navigation) |
 | F40 | Whole-application mobile responsiveness | W16, W18 | Continuous, P02, recheck every phase | [TC-F40-01…06](acceptance-cases.md#f40-whole-application-mobile-responsiveness) |
 | F41 | Themes/tokens/accessibility | W16 | P02, recheck every phase | [TC-F41-01…06](acceptance-cases.md#f41-themestokensaccessibility) |
-| F42 | Precision motion | W17 | P02, recheck every phase | [TC-F42-01…07](acceptance-cases.md#f42-precision-motion) |
+| F42 | Precision motion | W17 | P02, recheck every phase | [TC-F42-01…08](acceptance-cases.md#f42-precision-motion) |
 | F43 | Performance/caching | W05, W08, W14 | P02, P04, recheck every phase | [TC-F43-01…06](acceptance-cases.md#f43-performancecaching) |
 | F44 | Automated quality and release verification | W01, W18 | Continuous, P00, recheck every phase | [TC-F44-01…06](acceptance-cases.md#f44-automated-quality-and-release-verification) |
 | F45 | Operations/recovery | W19 | Continuous, recheck every phase | [TC-F45-01…06](acceptance-cases.md#f45-operationsrecovery) |
@@ -309,4 +309,4 @@ Public privacy/terms R16/R17 require approved content before external release, c
 
 Check exact ID sets, not only row counts. Every F requirement must have an owner, phase and case/child trace; every catalogue number must map to at least one F and QF; every R must map to a phase/explicit condition, RC recipe and QR. Review multi-package requirements and continuous security/mobile/test obligations before closing their product rows. A new feature/route/provider modifies this inventory before implementation begins.
 
-Current documentation reconciliation: 90 catalogue rows, 108 requirements, 78 routes, 39 package IDs with W20 superseded, 652 feature scenarios across 107 executable requirements, 24 universal dimensions and 20 cross-domain scenarios. These counts measure planning traceability only. Actual evidence, defects and independent verdicts belong in [QA checklist](qa-checklist.md).
+Current documentation reconciliation: 90 catalogue rows, 108 requirements, 78 routes, 39 package IDs with W20 superseded, 653 feature scenarios across 107 executable requirements, 24 universal dimensions and 20 cross-domain scenarios. These counts measure planning traceability only. Actual evidence, defects and independent verdicts belong in [QA checklist](qa-checklist.md).
