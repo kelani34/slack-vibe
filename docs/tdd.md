@@ -73,7 +73,7 @@ tests/fixtures/                      # synthetic factories; no production conten
 tests/support/                       # small shared setup, not a generic framework
 ```
 
-Current commands are `test` (the default Vitest projects), `test:unit`, `test:component`, `test:integration`, `test:coverage` and the opt-in `test:performance`. `.github/workflows/ci.yml` runs the three default test projects, Prisma generation, typecheck, production build and full lint. PR #5 hosted CI runs [36143873130](https://github.com/kelani34/slack-vibe/actions/runs/36143873130) and [36143896962](https://github.com/kelani34/slack-vibe/actions/runs/36143896962) passed; the full-repository lint baseline is clean locally, down from 84 errors and 32 warnings. Deliberate failure-propagation proof and future `test:contracts`, `test:policies`, `test:e2e`, `test:mobile`, `test:a11y` and `test:migrations` lanes remain open until implemented and verified.
+Current commands are `test` (the default Vitest projects), `test:unit`, `test:component`, `test:integration`, `test:coverage` and the opt-in `test:performance`. `.github/workflows/ci.yml` runs the three default test projects, Prisma generation, typecheck, production build and full lint. PR #6 hosted CI runs [36147715286](https://github.com/kelani34/slack-vibe/actions/runs/36147715286) and [36147720338](https://github.com/kelani34/slack-vibe/actions/runs/36147720338) passed; the full-repository lint baseline is clean locally, down from 84 errors and 32 warnings. Deliberate failure-propagation proof and future `test:contracts`, `test:policies`, `test:e2e`, `test:mobile`, `test:a11y` and `test:migrations` lanes remain open until implemented and verified.
 
 ## Isolation, determinism and test data
 
