@@ -24,6 +24,7 @@ model User {
   
   memberships   WorkspaceMember[]
   channelMemberships ChannelMember[]
+  uploadIntents UploadIntent[]
   messages      Message[]
   reactions     Reaction[]
   channelsCreated Channel[]
@@ -151,6 +152,7 @@ model Channel {
   
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   messages    Message[]
+  uploadIntents UploadIntent[]
   creatorId   String?
   creator     User?     @relation(fields: [creatorId], references: [id])
   starredBy   StarredChannel[]
@@ -253,20 +255,48 @@ model Message {
 model Attachment {
   id            String   @id @default(uuid())
   messageId     String
-  url           String
+  url           String?
   storageBucket String?
   storagePath   String?
+  uploadIntentId String? @unique
   type          String   // image, file, etc.
   name          String
   size          Int
   
   message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploadIntent UploadIntent? @relation(fields: [uploadIntentId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
   @@unique([storageBucket, storagePath], map: "attachments_storage_locator_key")
   
   @@map("attachments")
+}
+
+enum UploadIntentStatus {
+  PENDING
+  UPLOADED
+}
+
+model UploadIntent {
+  id            String             @id @default(uuid())
+  userId        String
+  channelId     String
+  storageBucket String
+  storagePath   String             @unique
+  name          String
+  type          String
+  size          Int
+  status        UploadIntentStatus @default(PENDING)
+  expiresAt     DateTime
+  createdAt     DateTime           @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel    Channel     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  attachment Attachment?
+
+  @@index([userId, channelId, status, expiresAt], map: "upload_intents_owner_channel_expiry_idx")
+  @@map("upload_intents")
 }
 
 model Reaction {

@@ -110,9 +110,11 @@ Keep server actions authoritative. Show reconnecting status; use bounded authori
 
 Pause duplicate or faulty trigger, retain pending records, inspect claim/failure state, repair idempotently and publish only still-authorized work. Report delayed delivery to authors. Never blindly clear all `scheduledAt` fields.
 
-### Storage failure
+### Storage setup and failure
 
-Stop new grants if authorization/finalization is broken; preserve local draft text and finalized upload references. Retry transfer/finalization independently. Cleanup jobs must have a grace period and reference checks.
+Before enabling uploads, create `workspace-files-private` as a non-public bucket with a 10 MB per-object limit and the exact MIME allowlist in `src/actions/upload.ts`. Keep the existing `workspace-files` bucket unchanged until profile-avatar and legacy-file migration is separately rehearsed. Verify anonymous reads fail, a signed upload token writes only its random channel/user path, finalization rejects wrong size/type/signature, and signed reads require current channel membership. The app intentionally fails closed if this bucket is absent. Supabase supports private bucket creation and per-bucket MIME/size restrictions in its [bucket setup guide](https://supabase.com/docs/guides/storage/buckets/creating-buckets).
+
+Stop new grants if authorization/finalization is broken; preserve local draft text and finalized upload references. A signed upload token is a bearer credential and may be used until its two-hour expiry; finalization and message send recheck live membership. Retry transfer/finalization independently. Cleanup jobs must have a grace period, intent/attachment reference checks and provider deletion confirmation before retiring metadata. Orphan cleanup is not implemented yet.
 
 ### Bad deployment or schema migration
 
