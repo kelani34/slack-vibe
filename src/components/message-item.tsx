@@ -8,6 +8,7 @@ import {
   unpinMessage,
 } from '@/actions/message-actions';
 import { editMessage, deleteMessage } from '@/actions/message';
+import { getAttachmentAccessUrls } from '@/actions/attachment';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,6 +35,8 @@ import {
   Pencil,
   Trash2,
   FileText,
+  ImageIcon,
+  Loader2,
   RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -52,7 +55,7 @@ import { UserHoverCard } from '@/components/user-hover-card';
 import { messageHtmlToText, sanitizeMessageHtml } from '@/lib/message-html';
 
 type MessageAttachment = Pick<Attachment, 'url' | 'name' | 'type' | 'size'> &
-  Partial<Pick<Attachment, 'id' | 'messageId' | 'createdAt'>> & {
+  Partial<Pick<Attachment, 'id' | 'messageId' | 'createdAt' | 'storageBucket' | 'storagePath'>> & {
     fileObject?: File;
     isUploaded?: boolean;
   };
@@ -122,10 +125,42 @@ export function MessageItem({
   const [isEditing, setIsEditing] = useState(false);
   const [previewFile, setPreviewFile] = useState<{
     url: string;
+    downloadUrl: string;
     name: string;
     type: string;
   } | null>(null);
+  const [loadingAttachmentId, setLoadingAttachmentId] = useState<string | null>(null);
   const messageRef = useRef<HTMLDivElement>(null);
+
+  const openAttachment = async (attachment: MessageAttachment) => {
+    if (!attachment.storagePath) {
+      setPreviewFile({ url: attachment.url, downloadUrl: attachment.url, name: attachment.name, type: attachment.type });
+      return;
+    }
+    if (!attachment.id) {
+      toast.error('This file cannot be opened right now.');
+      return;
+    }
+
+    setLoadingAttachmentId(attachment.id);
+    try {
+      const result = await getAttachmentAccessUrls(attachment.id);
+      if (result.previewUrl && result.downloadUrl) {
+        setPreviewFile({
+          url: result.previewUrl,
+          downloadUrl: result.downloadUrl,
+          name: attachment.name,
+          type: attachment.type,
+        });
+      } else {
+        toast.error(result.error);
+      }
+    } catch {
+      toast.error('Could not open this file. Try again.');
+    } finally {
+      setLoadingAttachmentId(null);
+    }
+  };
 
   const { mutate: retrySendMessage } = useSendMessage({
     channelId: channelId || message.channelId,
@@ -696,19 +731,25 @@ export function MessageItem({
               compact ? 'grid-cols-2' : 'grid-cols-3'
             }`}
           >
-            {message.attachments.map((att) => (
-              <div
+            {message.attachments.map((att) => {
+              const isPrivate = Boolean(att.storagePath);
+              const isLoading = Boolean(att.id && loadingAttachmentId === att.id);
+              return (
+              <button
+                type="button"
                 key={att.id ?? att.url}
-                className="block border rounded-lg overflow-hidden hover:border-primary transition-colors cursor-pointer group/attachment"
-                onClick={() =>
-                  setPreviewFile({
-                    url: att.url,
-                    name: att.name,
-                    type: att.type,
-                  })
-                }
+                aria-label={isLoading ? `Opening ${att.name}` : `Open ${att.name}`}
+                aria-busy={isLoading}
+                disabled={Boolean(loadingAttachmentId)}
+                className="block rounded-lg border overflow-hidden text-left hover:border-primary active:bg-accent/80 transition-colors cursor-pointer group/attachment focus-visible:outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                onClick={() => void openAttachment(att)}
               >
-                {att.type.startsWith('image/') ? (
+                {isLoading ? (
+                  <span className={`flex items-center justify-center gap-2 text-xs text-muted-foreground ${compact ? 'h-16' : 'h-24'}`}>
+                    <Loader2 aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
+                    Opening file…
+                  </span>
+                ) : att.type.startsWith('image/') && !isPrivate ? (
                   <Image
                     src={att.url}
                     alt={att.name}
@@ -726,15 +767,20 @@ export function MessageItem({
                     }`}
                   >
                     <div className="p-2 bg-background rounded-full shadow-sm">
-                      <FileText className="size-4 text-primary" />
+                      {att.type.startsWith('image/') ? (
+                        <ImageIcon aria-hidden="true" className="size-4 text-primary" />
+                      ) : (
+                        <FileText aria-hidden="true" className="size-4 text-primary" />
+                      )}
                     </div>
                     <span className="text-xs truncate w-full text-center px-1 font-medium">
                       {att.name}
                     </span>
                   </div>
                 )}
-              </div>
-            ))}
+              </button>
+              );
+            })}
           </div>
         )}
 
@@ -792,6 +838,7 @@ export function MessageItem({
       {previewFile && (
         <FilePreviewModal
           url={previewFile.url}
+          downloadUrl={previewFile.downloadUrl}
           name={previewFile.name}
           type={previewFile.type}
           onClose={() => setPreviewFile(null)}

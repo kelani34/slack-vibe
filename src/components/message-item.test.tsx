@@ -6,7 +6,9 @@ import { beforeEach, expect, it, vi } from 'vitest';
 
 import { MessageItem } from './message-item';
 import { bookmarkMessage, pinMessage } from '@/actions/message-actions';
+import { toast } from 'sonner';
 
+const attachmentDownload = vi.hoisted(() => ({ getAttachmentAccessUrls: vi.fn() }));
 vi.mock('@/actions/message-actions', () => ({
   toggleReaction: vi.fn(),
   bookmarkMessage: vi.fn(),
@@ -15,9 +17,13 @@ vi.mock('@/actions/message-actions', () => ({
   unpinMessage: vi.fn(),
 }));
 vi.mock('@/actions/message', () => ({ editMessage: vi.fn(), deleteMessage: vi.fn() }));
+vi.mock('@/actions/attachment', () => attachmentDownload);
 vi.mock('@/components/emoji-picker', () => ({ EmojiPicker: ({ trigger }: { trigger: React.ReactNode }) => trigger }));
 vi.mock('@/components/rich-text-editor', () => ({ RichTextEditor: () => null }));
-vi.mock('@/components/file-preview-modal', () => ({ FilePreviewModal: () => null }));
+vi.mock('@/components/file-preview-modal', () => ({
+  FilePreviewModal: ({ url, downloadUrl }: { url: string | null; downloadUrl?: string }) =>
+    url ? <div data-testid="file-preview-url" data-download-url={downloadUrl}>{url}</div> : null,
+}));
 vi.mock('@/components/user-hover-card', () => ({ UserHoverCard: ({ children }: PropsWithChildren) => children }));
 vi.mock('@/hooks/use-send-message', () => ({ useSendMessage: () => ({ mutate: vi.fn() }) }));
 vi.mock('next/navigation', () => ({ usePathname: () => '/acme/channel' }));
@@ -29,6 +35,166 @@ beforeEach(() => {
     value: vi.fn(),
     configurable: true,
   });
+});
+
+it('uses an access-checked short-lived URL to preview private attachments', async () => {
+  const user = userEvent.setup();
+  const queryClient = new QueryClient();
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  let resolveGrant!: (value: { previewUrl: string; downloadUrl: string }) => void;
+  attachmentDownload.getAttachmentAccessUrls.mockReturnValue(new Promise((resolve) => {
+    resolveGrant = resolve;
+  }));
+
+  render(
+    <MessageItem
+      workspaceId="workspace-1"
+      message={{
+        id: 'private-file-message',
+        channelId: 'channel-1',
+        userId: 'user-1',
+        parentId: null,
+        content: '<p>Private file</p>',
+        type: 'REGULAR',
+        createdAt: new Date('2026-09-24T10:00:00Z'),
+        updatedAt: new Date('2026-09-24T10:00:00Z'),
+        isPinned: false,
+        isDeleted: false,
+        isEdited: false,
+        user: { id: 'user-1', name: 'Alex', avatarUrl: null },
+        attachments: [{
+          id: 'attachment-1',
+          messageId: 'private-file-message',
+          url: 'https://files.example.test/public-legacy-url',
+          storageBucket: 'workspace-files-private',
+          storagePath: 'channel-1/object.png',
+          name: 'private.png',
+          type: 'image/png',
+          size: 12,
+        }],
+        reactions: [],
+        replies: [],
+        _count: { replies: 0 },
+      }}
+    />,
+    { wrapper },
+  );
+
+  const openButton = screen.getByRole('button', { name: 'Open private.png' });
+  expect(openButton).toHaveClass('focus-visible:ring-[3px]', 'focus-visible:border-ring');
+  expect(screen.queryByRole('img', { name: 'private.png' })).not.toBeInTheDocument();
+  await user.click(openButton);
+
+  expect(attachmentDownload.getAttachmentAccessUrls).toHaveBeenCalledWith('attachment-1');
+  expect(screen.getByRole('button', { name: 'Opening private.png' })).toBeDisabled();
+  expect(screen.getByText('Opening file…')).toBeInTheDocument();
+
+  resolveGrant({
+    previewUrl: 'https://files.example.test/signed-preview',
+    downloadUrl: 'https://files.example.test/signed-download',
+  });
+  expect(await screen.findByTestId('file-preview-url')).toHaveTextContent('https://files.example.test/signed-preview');
+  expect(screen.getByTestId('file-preview-url')).toHaveAttribute('data-download-url', 'https://files.example.test/signed-download');
+  expect(screen.getByTestId('file-preview-url')).not.toHaveTextContent('public-legacy-url');
+});
+
+it('keeps legacy attachments readable during the staged storage migration', async () => {
+  const user = userEvent.setup();
+  const queryClient = new QueryClient();
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
+  render(
+    <MessageItem
+      workspaceId="workspace-1"
+      message={{
+        id: 'legacy-file-message',
+        channelId: 'channel-1',
+        userId: 'user-1',
+        parentId: null,
+        content: '<p>Legacy file</p>',
+        type: 'REGULAR',
+        createdAt: new Date('2026-09-24T10:00:00Z'),
+        updatedAt: new Date('2026-09-24T10:00:00Z'),
+        isPinned: false,
+        isDeleted: false,
+        isEdited: false,
+        user: { id: 'user-1', name: 'Alex', avatarUrl: null },
+        attachments: [{
+          id: 'legacy-attachment',
+          messageId: 'legacy-file-message',
+          url: 'https://files.example.test/legacy.png',
+          name: 'legacy.png',
+          type: 'image/png',
+          size: 12,
+        }],
+        reactions: [],
+        replies: [],
+        _count: { replies: 0 },
+      }}
+    />,
+    { wrapper },
+  );
+
+  await user.click(screen.getByRole('button', { name: 'Open legacy.png' }));
+
+  expect(screen.getByTestId('file-preview-url')).toHaveTextContent('https://files.example.test/legacy.png');
+  expect(attachmentDownload.getAttachmentAccessUrls).not.toHaveBeenCalled();
+});
+
+it('shows a retryable error when private attachment access is denied', async () => {
+  const user = userEvent.setup();
+  const queryClient = new QueryClient();
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+  attachmentDownload.getAttachmentAccessUrls
+    .mockResolvedValueOnce({ error: 'File not found' })
+    .mockResolvedValueOnce({ previewUrl: 'https://files.example.test/retry-preview', downloadUrl: 'https://files.example.test/retry-download' });
+
+  render(
+    <MessageItem
+      workspaceId="workspace-1"
+      message={{
+        id: 'denied-private-file-message',
+        channelId: 'channel-1',
+        userId: 'user-1',
+        parentId: null,
+        content: '<p>Private file</p>',
+        type: 'REGULAR',
+        createdAt: new Date('2026-09-24T10:00:00Z'),
+        updatedAt: new Date('2026-09-24T10:00:00Z'),
+        isPinned: false,
+        isDeleted: false,
+        isEdited: false,
+        user: { id: 'user-1', name: 'Alex', avatarUrl: null },
+        attachments: [{
+          id: 'denied-attachment',
+          messageId: 'denied-private-file-message',
+          url: 'https://files.example.test/public-legacy-url',
+          storageBucket: 'workspace-files-private',
+          storagePath: 'channel-1/object.png',
+          name: 'denied.png',
+          type: 'image/png',
+          size: 12,
+        }],
+        reactions: [],
+        replies: [],
+        _count: { replies: 0 },
+      }}
+    />,
+    { wrapper },
+  );
+
+  await user.click(screen.getByRole('button', { name: 'Open denied.png' }));
+
+  expect(toast.error).toHaveBeenCalledWith('File not found');
+  expect(screen.queryByTestId('file-preview-url')).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Open denied.png' }));
+  expect(await screen.findByTestId('file-preview-url')).toHaveTextContent('https://files.example.test/retry-preview');
 });
 
 it('scrolls to and briefly highlights a linked message', () => {

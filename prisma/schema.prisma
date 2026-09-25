@@ -251,16 +251,20 @@ model Message {
 }
 
 model Attachment {
-  id        String   @id @default(uuid())
-  messageId String
-  url       String
-  type      String   // image, file, etc.
-  name      String
-  size      Int
+  id            String   @id @default(uuid())
+  messageId     String
+  url           String
+  storageBucket String?
+  storagePath   String?
+  type          String   // image, file, etc.
+  name          String
+  size          Int
   
   message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+
+  @@unique([storageBucket, storagePath], map: "attachments_storage_locator_key")
   
   @@map("attachments")
 }

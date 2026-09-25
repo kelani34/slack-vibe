@@ -53,7 +53,7 @@ Do not mark PASS from a screenshot, a developer statement, successful build, moc
 | QF24 | Typing indicators | F26 | See when another participant is composing in the current conversation | NOT RUN | — |
 | QF25 | Scheduled messages | F28 | Schedule, inspect, edit, cancel or send a pending message now | NOT RUN | Scheduled route and cancellation are implementation evidence; edit/send-now and independent QA remain |
 | QF26 | File attachments | F29 | Upload files with progress, cancellation and retry and attach them to a message | NOT RUN | Developer integration tests reject SVG and mismatched PNG/MP4 prefixes and accept matching PNG/MP4 headers; private URLs, progress/cancel/retry, full decoding/scanning and independent QA remain unverified |
-| QF27 | File preview and download | F30 | Preview supported images/files and download items the user may still access | NOT RUN | — |
+| QF27 | File preview and download | F30 | Preview supported images/files and download items the user may still access | NOT RUN | Developer tests cover authorized 5-minute preview/download grant issuance, denied/deleted/future items, path scope, loading/retry, and legacy URL compatibility; live bucket, expiration/revocation, device behavior and independent QA remain unverified |
 | QF28 | Advanced search | F31/F55 | Find messages using people, channels, dates and attachment filters | NOT RUN | — |
 | QF29 | Pinned messages | F32 | Keep important decisions available to everyone who can access a channel | NOT RUN | — |
 | QF30 | Personal saved items | F33/F65 | Bookmark messages privately and organize them as pending or completed | NOT RUN | — |

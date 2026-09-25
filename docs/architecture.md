@@ -24,7 +24,7 @@ F79–F108 expand the architecture described in [calls and meetings](calls-and-m
 
 Role evaluation must become the shared source of effective capabilities before custom roles, guests, shared channels or media grants ship. Notification/automation workers carry explicit authority and recheck on delayed execution. Calendar, identity, speech and translation providers each validate external input once and expose concrete domain operations; a generic provider factory or universal workflow framework is not required. Native clients consume versioned shared contracts rather than copying permission decisions.
 
-The initial application/DB stack is retained. Managed media and selected processors are purposeful integrations for requested features, not a rewrite into microservices. Provider selection and measured limitations determine any further infrastructure.
+The initial application/DB stack is retained. Managed media and selected processors are purposeful integrations for requested features, not a rewrite into microservices. Provider selection and measured limitations determine any further infrastructure. W09 now has optional attachment object locators and a server grant boundary that rechecks channel membership and message visibility before issuing 5-minute preview/download URLs; `MessageItem` requests these only when a private attachment is opened. This is a compatibility layer, not a completed private-storage architecture: new uploads still target the legacy public bucket and persist public URLs, no private bucket is provisioned in the repository, and object owner/finalization and cleanup are not modeled yet.
 
 ## Recommendation
 
