@@ -3,8 +3,8 @@
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { PRIVATE_ATTACHMENT_BUCKET } from '@/lib/attachment-storage';
 
-const PRIVATE_ATTACHMENT_BUCKET = 'workspace-files-private';
 const DOWNLOAD_GRANT_SECONDS = 300;
 
 export async function getAttachmentAccessUrls(attachmentId: string) {

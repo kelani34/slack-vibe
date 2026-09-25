@@ -42,6 +42,198 @@ async function fixture() {
 }
 
 describe('message access boundaries (F04 / A01-A03)', () => {
+  it('does not let a sender attach an arbitrary caller-supplied storage URL', async () => {
+    const { channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    const form = new FormData();
+    form.set('channelId', channel.id);
+    form.set('content', 'forged file reference');
+    form.set('clientMutationId', randomUUID());
+    form.set('attachments', JSON.stringify([{
+      url: 'https://attacker.example.test/private-file',
+      name: 'private.txt',
+      type: 'text/plain',
+      size: 10,
+    }]));
+
+    const result = await sendMessage(form);
+
+    expect(result).toMatchObject({ error: expect.any(String) });
+    expect(await prisma.message.count({ where: { channelId: channel.id, content: 'forged file reference' } })).toBe(0);
+  });
+
+  it('attaches only the sender-owned uploaded object and takes file metadata from its intent', async () => {
+    const { channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    const intent = await prisma.uploadIntent.create({
+      data: {
+        userId: actor.id,
+        channelId: channel.id,
+        storageBucket: 'workspace-files-private',
+        storagePath: `${channel.id}/${actor.id}/${randomUUID()}.txt`,
+        name: 'server-note.txt',
+        type: 'text/plain',
+        size: 4,
+        status: 'UPLOADED',
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    const form = new FormData();
+    form.set('channelId', channel.id);
+    form.set('clientMutationId', randomUUID());
+    form.set('attachments', JSON.stringify([{ uploadIntentId: intent.id }]));
+
+    const result = await sendMessage(form);
+
+    expect(result).toMatchObject({
+      success: true,
+      message: {
+        attachments: [{
+          uploadIntentId: intent.id,
+          url: null,
+          storageBucket: 'workspace-files-private',
+          storagePath: intent.storagePath,
+          name: 'server-note.txt',
+          type: 'text/plain',
+          size: 4,
+        }],
+      },
+    });
+  });
+
+  it('rejects another member’s upload intent and expired or already attached intents', async () => {
+    const { owner, channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    const otherIntent = await prisma.uploadIntent.create({
+      data: {
+        userId: owner.id,
+        channelId: channel.id,
+        storageBucket: 'workspace-files-private',
+        storagePath: `${channel.id}/${owner.id}/${randomUUID()}.txt`,
+        name: 'other.txt',
+        type: 'text/plain',
+        size: 4,
+        status: 'UPLOADED',
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    const form = new FormData();
+    form.set('channelId', channel.id);
+    form.set('content', 'cross-owner upload intent');
+    form.set('clientMutationId', randomUUID());
+    form.set('attachments', JSON.stringify([{ uploadIntentId: otherIntent.id }]));
+
+    expect(await sendMessage(form)).toMatchObject({ error: expect.any(String) });
+    expect(await prisma.message.count({ where: { channelId: channel.id, content: 'cross-owner upload intent' } })).toBe(0);
+  });
+
+  it('rejects expired upload intents before creating a message', async () => {
+    const { channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    const intent = await prisma.uploadIntent.create({
+      data: {
+        userId: actor.id,
+        channelId: channel.id,
+        storageBucket: 'workspace-files-private',
+        storagePath: `${channel.id}/${actor.id}/${randomUUID()}.txt`,
+        name: 'expired.txt',
+        type: 'text/plain',
+        size: 4,
+        status: 'UPLOADED',
+        createdAt: new Date(Date.now() - 120_000),
+        expiresAt: new Date(Date.now() - 60_000),
+      },
+    });
+    const form = new FormData();
+    form.set('channelId', channel.id);
+    form.set('content', 'expired upload intent');
+    form.set('clientMutationId', randomUUID());
+    form.set('attachments', JSON.stringify([{ uploadIntentId: intent.id }]));
+
+    expect(await sendMessage(form)).toMatchObject({ error: 'One or more uploaded files are unavailable' });
+    expect(await prisma.message.count({ where: { channelId: channel.id, content: 'expired upload intent' } })).toBe(0);
+  });
+
+  it('does not attach one upload intent to two messages', async () => {
+    const { channel, owner } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    const intent = await prisma.uploadIntent.create({
+      data: {
+        userId: actor.id,
+        channelId: channel.id,
+        storageBucket: 'workspace-files-private',
+        storagePath: `${channel.id}/${actor.id}/${randomUUID()}.txt`,
+        name: 'once.txt',
+        type: 'text/plain',
+        size: 4,
+        status: 'UPLOADED',
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    const priorMessage = await prisma.message.create({
+      data: {
+        channelId: channel.id,
+        userId: owner.id,
+        content: 'already attached',
+        attachments: {
+          create: {
+            uploadIntentId: intent.id,
+            url: null,
+            storageBucket: intent.storageBucket,
+            storagePath: intent.storagePath,
+            name: intent.name,
+            type: intent.type,
+            size: intent.size,
+          },
+        },
+      },
+    });
+    const form = new FormData();
+    form.set('channelId', channel.id);
+    form.set('content', 'reused upload intent');
+    form.set('clientMutationId', randomUUID());
+    form.set('attachments', JSON.stringify([{ uploadIntentId: intent.id }]));
+
+    expect(await sendMessage(form)).toMatchObject({ error: 'One or more uploaded files are unavailable' });
+    expect(await prisma.message.findUnique({ where: { id: priorMessage.id } })).not.toBeNull();
+    expect(await prisma.message.count({ where: { channelId: channel.id, content: 'reused upload intent' } })).toBe(0);
+  });
+
+  it('enforces the five-file and 25 MB per-message attachment limits', async () => {
+    const { channel } = await fixture();
+    await prisma.channelMember.create({ data: { channelId: channel.id, userId: actor.id } });
+    const sixFiles = new FormData();
+    sixFiles.set('channelId', channel.id);
+    sixFiles.set('content', 'too many files');
+    sixFiles.set('clientMutationId', randomUUID());
+    sixFiles.set('attachments', JSON.stringify(Array.from({ length: 6 }, () => ({ uploadIntentId: randomUUID() }))));
+    expect(await sendMessage(sixFiles)).toMatchObject({ error: expect.any(String) });
+
+    const intents = await Promise.all(Array.from({ length: 3 }, (_, index) =>
+      prisma.uploadIntent.create({
+        data: {
+          userId: actor.id,
+          channelId: channel.id,
+          storageBucket: 'workspace-files-private',
+          storagePath: `${channel.id}/${actor.id}/${randomUUID()}.bin`,
+          name: `file-${index}.bin`,
+          type: 'application/pdf',
+          size: 9 * 1024 * 1024,
+          status: 'UPLOADED',
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+      }),
+    ));
+    const totalTooLarge = new FormData();
+    totalTooLarge.set('channelId', channel.id);
+    totalTooLarge.set('content', 'too many bytes');
+    totalTooLarge.set('clientMutationId', randomUUID());
+    totalTooLarge.set('attachments', JSON.stringify(intents.map(({ id }) => ({ uploadIntentId: id }))));
+
+    expect(await sendMessage(totalTooLarge)).toMatchObject({ error: expect.any(String) });
+    expect(await prisma.message.count({ where: { channelId: channel.id, content: { in: ['too many files', 'too many bytes'] } } })).toBe(0);
+  });
+
   it('does not return a private channel to a workspace member without channel membership', async () => {
     const { channel, message } = await fixture();
     expect(await getMessages(channel.id)).toEqual([]);
@@ -396,7 +588,7 @@ describe('message access boundaries (F04 / A01-A03)', () => {
       { scheduledAt: new Date(Date.now() + 60_000).toISOString() },
       {
         attachments: JSON.stringify([
-          { url: 'https://files.test/other.txt', name: 'other.txt', type: 'text/plain', size: 5 },
+          { uploadIntentId: randomUUID() },
         ]),
       },
     ];

@@ -39,7 +39,7 @@ async function privateAttachmentFixture() {
   const attachment = await prisma.attachment.create({
     data: {
       messageId: message.id,
-      url: 'https://legacy.example.test/private-object',
+      url: null,
       storageBucket: 'workspace-files-private',
       storagePath: `${channel.id}/object-id.png`,
       type: 'image/png',
@@ -63,6 +63,15 @@ describe('private attachment download grants (A06 / F30)', () => {
         name: 'incomplete.png',
         size: 12,
       },
+    })).rejects.toThrow();
+  });
+
+  it('does not retain a permanent public URL beside a private object locator', async () => {
+    const { attachment } = await privateAttachmentFixture();
+
+    await expect(prisma.attachment.update({
+      where: { id: attachment.id },
+      data: { url: 'https://public.example.test/private-object' },
     })).rejects.toThrow();
   });
 

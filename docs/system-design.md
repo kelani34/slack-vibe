@@ -10,7 +10,7 @@ The current implementation has the `DIRECT` enum migration, a durable pair-key c
 
 ## Additional collaboration domain contracts
 
-[F69–F78 system specifications](collaboration-features.md) extend this design with polls/ballots, versioned announcements/acknowledgements, workspace emoji/groups, channel tasks/notes and personal keyword/search records. Voice notes will use the planned private attachment lifecycle only after W09 closes; current attachment URLs are public. Fixed templates use versioned application configuration. That document owns proposed fields, transactional invariants, states, events and per-feature failure behavior. No new datastore or transport is proposed.
+[F69–F78 system specifications](collaboration-features.md) extend this design with polls/ballots, versioned announcements/acknowledgements, workspace emoji/groups, channel tasks/notes and personal keyword/search records. Voice notes will use the private attachment lifecycle only after W09 closes; new private-upload references now exist, while legacy URL-only rows and the avatar uploader remain. Fixed templates use versioned application configuration. That document owns proposed fields, transactional invariants, states, events and per-feature failure behavior. No new datastore or transport is proposed.
 
 These are source-channel-scoped features: a task, ballot, note revision or acknowledgement lookup must authorize its parent, not only its supplied ID. Publication expands group recipients and matches keywords after the canonical message is durable; retries deduplicate notification intent. Poll close/vote, note save/version and announcement edit/acknowledgement are explicit concurrency boundaries. Rollback preserves their data and disables affected writes independently.
 
@@ -77,7 +77,7 @@ Authorized events can initially be scoped Postgres Changes if policies and ident
 1. Browser input enters actions: validate once with existing Zod, resolve the actor from the session, and enforce domain permissions.
 2. Server route reads: use the same authorization policy before serializing any record. Return explicit public projections rather than entire Prisma user/workspace records.
 3. Realtime transport: authenticate subscription identity and authorize every exposed topic/table. Payload filtering in browser JavaScript is not access control.
-4. Storage: authorize creation/finalization/download against account and conversation scope. An arbitrary supplied URL is not proof of file ownership.
+4. Storage: authorize signed-upload intent and finalization against account and conversation scope, transfer bytes directly to private storage, attach only one-use finalized intent IDs, and reauthorize every short-lived download grant. An arbitrary supplied URL is not proof of file ownership. The service-role client only issues path-specific upload/read grants and verifies metadata; it never enters the browser.
 5. Worker: authenticate invocation, claim work transactionally, recheck publication permissions, and make retries safe.
 
 ## Current data model and required evolution
@@ -91,7 +91,7 @@ Authorized events can initially be scoped Postgres Changes if policies and ident
 | ChannelMember | Membership and `lastViewedAt` | Monotonic read cursor; no cross-workspace members; future message visibility excluded; group lifecycle/history boundary when enabled |
 | ChannelPostingAllowedMember | Selected posters | Validate members belong to channel/workspace; selected policy shared by all write paths |
 | Message | Sanitized HTML, parent, schedule, pin/edit/delete flags | `clientMutationId` is unique per author; a server-only request hash rejects key reuse with changed payload; safe content; explicit publication state; deterministic `(createdAt,id)` ordering; parent/channel invariant; `pg_trgm` GIN index supports current `ILIKE` substring search |
-| Attachment | Legacy URL, MIME, name, size; optional storage bucket/path locator | Target: object key plus upload owner/finalization state; signed URLs are derived, not canonical records. Current schema adds an optional unique bucket/path pair; legacy URL is still required and upload does not populate the new fields |
+| Attachment | Optional legacy URL, MIME, name, size, optional bucket/path, and one-use upload-intent relation | New records use private object keys; upload intent stores owner/channel, expiry and verification state. Signed upload/download tokens are derived bearer grants, never canonical records. Legacy URL-only rows remain readable during migration |
 | Reaction | Unique message/user/emoji | Idempotent desired-state updates; channel access checked |
 | StarredChannel / BookmarkedMessage | Personal references | Current membership checked at read time; unique constraints support idempotent operations |
 | PinnedMessage | Channel reference plus pinnedBy | Message/channel equality; avoid independently mutable duplicate pin truth |
@@ -131,7 +131,7 @@ Keep Server Actions for the existing browser application; a new REST API is not 
 | Set reaction/save/star | Resource ID, desired state; emoji for reaction | Resulting state and affected summary | Retry-safe desired state instead of non-idempotent toggle |
 | Mark read | Conversation plus last actually visible message cursor | Authoritative monotonic cursor/count summary | Never trust arbitrary future timestamp; validate cursor scope |
 | Search | Workspace, parsed query/filters (≤500 characters), page cursor | Safe result excerpts and next cursor, or explicit validation error | Allowlisted syntax/date parsing happens before query construction; invalid filters cannot widen results; current-access and published-only predicates included |
-| Upload intent/finalize | Channel, bounded metadata; then intent/object ID | Expiring upload grant; then finalized attachment record | Server verifies ownership and actual stored object; not implemented yet |
+| Upload intent/finalize | Channel, bounded metadata; then intent/object ID | 2-hour path-scoped upload token; then verified owner-bound intent | Current membership, exact object path/size/MIME, bounded signature prefix for supported media; no bucket provisioning or orphan worker yet |
 | Request attachment URLs | Attachment ID | Separate 300-second preview and forced-download URLs | Current channel membership, visible-message check, allowlisted bucket, channel-prefixed object path; never persist signed URLs |
 | Schedule/cancel | Channel/parent/content/files/time or existing scheduled ID/version | Author-owned schedule state | Cancel/publication race serialized; no prepublication recipients |
 
@@ -195,7 +195,7 @@ No duplicate SQL-cron-plus-Edge-Function deployment. Proposed delivery target: p
 
 ## File lifecycle
 
-Proposed flow: authorize upload intent → return bounded signed upload grant → upload bytes directly to private storage → server verifies stored object metadata → attach finalized ID in message transaction → generate authorized short-lived download URL on demand. Start with at most three concurrent uploads, then measure bandwidth and memory.
+Implemented foundation: authorize upload intent → return a 2-hour path-scoped signed upload token → transfer bytes directly from browser to private storage → verify stored object size/MIME and the first 12 bytes of supported media → attach the one-use finalized intent in the message transaction → generate authorized short-lived download URLs on demand. The bucket must be provisioned privately; the direct SDK transfer is not yet resumable and has no measured bandwidth, memory or progress evidence.
 
 Unattached uploads have an expiry and cleanup job. Message deletion follows the retention policy before removing shared objects. A file may appear in several references; cleanup must not delete bytes still referenced by an authorized published message. Content sniffing, safe rendering, and optional scanning are detailed in [security](security.md).
 

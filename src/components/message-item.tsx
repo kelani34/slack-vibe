@@ -55,7 +55,7 @@ import { UserHoverCard } from '@/components/user-hover-card';
 import { messageHtmlToText, sanitizeMessageHtml } from '@/lib/message-html';
 
 type MessageAttachment = Pick<Attachment, 'url' | 'name' | 'type' | 'size'> &
-  Partial<Pick<Attachment, 'id' | 'messageId' | 'createdAt' | 'storageBucket' | 'storagePath'>> & {
+  Partial<Pick<Attachment, 'id' | 'messageId' | 'createdAt' | 'storageBucket' | 'storagePath' | 'uploadIntentId'>> & {
     fileObject?: File;
     isUploaded?: boolean;
   };
@@ -134,6 +134,10 @@ export function MessageItem({
 
   const openAttachment = async (attachment: MessageAttachment) => {
     if (!attachment.storagePath) {
+      if (!attachment.url) {
+        toast.error('This file cannot be opened right now.');
+        return;
+      }
       setPreviewFile({ url: attachment.url, downloadUrl: attachment.url, name: attachment.name, type: attachment.type });
       return;
     }
@@ -180,10 +184,10 @@ export function MessageItem({
       attachment.fileObject instanceof File ? [attachment.fileObject] : [],
     );
     const uploadedAttachments = attachments.flatMap((attachment, index) =>
-      attachment.fileObject instanceof File && attachment.isUploaded
+      attachment.fileObject instanceof File && attachment.isUploaded && attachment.uploadIntentId
         ? [{
             index,
-            url: attachment.url,
+            uploadIntentId: attachment.uploadIntentId,
             name: attachment.name,
             type: attachment.type,
             size: attachment.size,
@@ -749,7 +753,7 @@ export function MessageItem({
                     <Loader2 aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />
                     Opening file…
                   </span>
-                ) : att.type.startsWith('image/') && !isPrivate ? (
+                ) : att.type.startsWith('image/') && !isPrivate && att.url ? (
                   <Image
                     src={att.url}
                     alt={att.name}

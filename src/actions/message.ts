@@ -8,6 +8,7 @@ import { createNotification } from './notification';
 import { NotificationType, Prisma } from '@prisma/client';
 import { sanitizeMessageHtml } from '@/lib/message-html';
 import { parseSearchQuery } from '@/lib/search-query';
+import { PRIVATE_ATTACHMENT_BUCKET } from '@/lib/attachment-storage';
 
 const sendMessageSchema = z.object({
   channelId: z.string().min(1, 'Channel ID is required'),
@@ -15,17 +16,10 @@ const sendMessageSchema = z.object({
   parentId: z.string().optional().nullable(),
   scheduledAt: z.string().optional().nullable(), // ISO date string
   clientMutationId: z.string().uuid(),
-  attachments: z
-    .array(
-      z.object({
-        url: z.string(),
-        name: z.string(),
-        type: z.string(),
-        size: z.number(),
-      })
-    )
-    .optional(),
+  attachments: z.array(z.object({ uploadIntentId: z.string().uuid() })).max(5).optional(),
 });
+
+const MAX_MESSAGE_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 
 async function sanitizeChannelMessageHtml(channelId: string, content: string) {
   const candidate = sanitizeMessageHtml(content);
@@ -99,7 +93,7 @@ export async function sendMessage(formData: FormData) {
         parentId: validated.data.parentId || null,
         scheduledAt: validated.data.scheduledAt || null,
         content: safeContent,
-        attachments: validated.data.attachments || [],
+        attachments: validated.data.attachments?.map(({ uploadIntentId }) => uploadIntentId) || [],
       }),
     )
     .digest('hex');
@@ -116,13 +110,6 @@ export async function sendMessage(formData: FormData) {
       clientMutationId: validated.data.clientMutationId,
       requestHash,
     };
-
-    // Only add attachments if they exist
-    if (validated.data.attachments && validated.data.attachments.length > 0) {
-      messageData.attachments = {
-        create: validated.data.attachments,
-      };
-    }
 
     // Check posting permissions
     const channel = await prisma.channel.findUnique({
@@ -227,6 +214,52 @@ export async function sendMessage(formData: FormData) {
         });
         if (!allowed) return { error: 'You cannot post in this channel' };
       }
+    }
+
+    if (validated.data.attachments?.length) {
+      const intentIds = validated.data.attachments.map(({ uploadIntentId }) => uploadIntentId);
+      const intents = await prisma.uploadIntent.findMany({
+        where: {
+          id: { in: intentIds },
+          userId: session.user.id,
+          channelId: channel.id,
+          storageBucket: PRIVATE_ATTACHMENT_BUCKET,
+          status: 'UPLOADED',
+          expiresAt: { gt: new Date() },
+          attachment: { is: null },
+        },
+        select: {
+          id: true,
+          storageBucket: true,
+          storagePath: true,
+          name: true,
+          type: true,
+          size: true,
+        },
+      });
+      const intentsById = new Map(intents.map((intent) => [intent.id, intent]));
+      if (intents.length !== intentIds.length || new Set(intentIds).size !== intentIds.length) {
+        return { error: 'One or more uploaded files are unavailable' };
+      }
+      if (intents.reduce((total, intent) => total + intent.size, 0) > MAX_MESSAGE_ATTACHMENT_BYTES) {
+        return { error: 'Attachments exceed the 25 MB per-message limit' };
+      }
+
+      messageData.attachments = {
+        create: intentIds.map((id) => {
+          const intent = intentsById.get(id);
+          if (!intent) throw new Error('Validated upload intent disappeared');
+          return {
+            url: null,
+            storageBucket: intent.storageBucket,
+            storagePath: intent.storagePath,
+            uploadIntent: { connect: { id: intent.id } },
+            name: intent.name,
+            type: intent.type,
+            size: intent.size,
+          };
+        }),
+      };
     }
 
     let message;

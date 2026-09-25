@@ -1,5 +1,6 @@
 import { sendMessage } from '@/actions/message';
-import { uploadFile } from '@/actions/upload';
+import { createUploadIntent, finalizeUploadIntent } from '@/actions/upload';
+import { createClient } from '@/lib/supabase/client';
 import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Attachment, Reaction } from '@prisma/client';
@@ -7,7 +8,7 @@ import { messageQueryKeys } from '@/lib/message-query-keys';
 
 type SendResult = Awaited<ReturnType<typeof sendMessage>>;
 type SentMessage = Extract<SendResult, { message: unknown }>['message'];
-type UploadedAttachment = Pick<Attachment, 'url' | 'name' | 'type' | 'size'>;
+type UploadedAttachment = Pick<Attachment, 'name' | 'type' | 'size'> & { uploadIntentId: string };
 type IndexedUploadedAttachment = UploadedAttachment & { index: number };
 type SendMessageInput = {
   html: string;
@@ -17,7 +18,7 @@ type SendMessageInput = {
   uploadedAttachments?: IndexedUploadedAttachment[];
 };
 type CachedAttachment = Pick<Attachment, 'url' | 'name' | 'type' | 'size'> &
-  Partial<Pick<Attachment, 'id' | 'messageId' | 'createdAt'>> & {
+  Partial<Pick<Attachment, 'id' | 'messageId' | 'createdAt' | 'uploadIntentId'>> & {
     fileObject?: File;
     isUploaded?: boolean;
   };
@@ -137,33 +138,34 @@ export function useSendMessage({
       for (const [index, file] of files.entries()) {
         const cachedAttachment = uploadedByIndex.get(index);
         if (cachedAttachment) {
-          attachments.push(cachedAttachment);
+          const finalized = await finalizeUploadIntent(cachedAttachment.uploadIntentId);
+          if ('error' in finalized) throw new Error(finalized.error);
+          attachments.push(finalized);
           continue;
         }
 
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('channelId', channelId);
-        const result = await uploadFile(formData);
-        if (result.error) throw new Error(result.error);
-        if (result.url) {
-          const attachment = {
-            url: result.url,
-            name: result.name,
-            type: result.type,
-            size: result.size,
-          };
-          attachments.push(attachment);
+        const result = await createUploadIntent({ channelId, name: file.name, type: file.type, size: file.size });
+        if ('error' in result) throw new Error(result.error);
+        if (result.uploadIntentId) {
+          const { error } = await createClient()
+            .storage.from(result.storageBucket)
+            .uploadToSignedUrl(result.storagePath, result.token, file, { contentType: result.type });
+          if (error) throw new Error('File upload failed. Try again.');
+          const finalized = await finalizeUploadIntent(result.uploadIntentId);
+          if ('error' in finalized) throw new Error(finalized.error);
+          attachments.push(finalized);
           if (clientMutationId) {
-            storeUploadedAttachment(clientMutationId, index, attachment);
+            storeUploadedAttachment(clientMutationId, index, finalized);
           }
+        } else {
+          throw new Error('File upload did not create an upload intent');
         }
       }
 
       const formData = new FormData();
       formData.append('channelId', channelId);
       formData.append('content', html);
-      formData.append('attachments', JSON.stringify(attachments));
+      formData.append('attachments', JSON.stringify(attachments.map(({ uploadIntentId }) => ({ uploadIntentId }))));
       if (parentId) formData.append('parentId', parentId);
       if (scheduledAt) formData.append('scheduledAt', scheduledAt.toISOString());
       if (clientMutationId) formData.append('clientMutationId', clientMutationId);
@@ -198,7 +200,7 @@ export function useSendMessage({
         attachments: files.map((file, index) => {
           const uploaded = uploadedByIndex.get(index);
           return {
-            url: uploaded?.url ?? URL.createObjectURL(file),
+            url: URL.createObjectURL(file),
             name: uploaded?.name ?? file.name,
             type: uploaded?.type ?? file.type,
             size: uploaded?.size ?? file.size,
@@ -262,8 +264,35 @@ export function useSendMessage({
     },
     onSuccess: async (result, _variables, context) => {
       if ('error' in result) {
-        toast.error(result.error);
+        const uploadExpired = result.error === 'One or more uploaded files are unavailable';
+        toast.error(uploadExpired ? 'File upload expired. Retry to upload it again.' : result.error);
         if (context?.tempId) {
+          if (uploadExpired) {
+            const resetExpiredIntents = (message: CachedMessage): CachedMessage => {
+              if (message.id !== context.tempId) return message;
+              return {
+                ...message,
+                attachments: message.attachments.map((attachment) => {
+                  const retryable = { ...attachment };
+                  delete retryable.uploadIntentId;
+                  delete retryable.isUploaded;
+                  return retryable;
+                }),
+              };
+            };
+            if (parentId) {
+              queryClient.setQueryData<CachedMessage[]>(
+                threadKey,
+                (old) => old?.map(resetExpiredIntents),
+              );
+            } else {
+              queryClient.setQueryData<MessagePages>(timelineKey, (old) =>
+                old
+                  ? { ...old, pages: old.pages.map((page) => page.map(resetExpiredIntents)) }
+                  : old,
+              );
+            }
+          }
           updateMessageStatus(context.tempId, { isPending: false, isError: true });
         }
         return;
