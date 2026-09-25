@@ -54,7 +54,7 @@ export function ProfileSidebar({
   const setActiveProfile = useProfileStore((state) => state.setActiveProfile);
   const [showEditDialog, setShowEditDialog] = useState(false);
 
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading, isError, refetch } = useQuery({
     queryKey: ['user-profile', activeProfileUserId],
     queryFn: () =>
       activeProfileUserId ? getUserProfile(activeProfileUserId, workspaceId) : null,
@@ -201,8 +201,23 @@ export function ProfileSidebar({
               <Skeleton className="mt-6 h-10 w-36 rounded-md" />
             </div>
           </div>
+        ) : isError && !user ? (
+          <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+            <p className="text-sm text-muted-foreground">Couldn’t load this profile.</p>
+            <Button variant="outline" onClick={() => void refetch()}>
+              Try again
+            </Button>
+          </div>
         ) : user ? (
           <div className="flex-1 overflow-auto">
+            {isError && (
+              <div role="alert" className="flex items-center justify-between gap-3 border-b p-3 text-sm text-muted-foreground">
+                <span>Couldn’t refresh this profile.</span>
+                <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                  Try again
+                </Button>
+              </div>
+            )}
             {/* Profile Header */}
             <div className="p-6 flex flex-col items-center text-center">
               <div className="relative">
