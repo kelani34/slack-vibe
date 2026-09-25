@@ -42,6 +42,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { FilePreviewModal } from '@/components/file-preview-modal';
 import { useSendMessage } from '@/hooks/use-send-message';
+import { messageQueryKeys } from '@/lib/message-query-keys';
 import parse, { domToReact, type Element } from 'html-react-parser';
 import Image from 'next/image';
 import type { Attachment, Message, Reaction, User } from '@prisma/client';
@@ -92,7 +93,7 @@ interface MessageItemProps {
   currentUserId?: string;
   userRole?: string;
   isArchived?: boolean;
-  workspaceId?: string;
+  workspaceId: string;
 }
 
 export function MessageItem({
@@ -113,6 +114,8 @@ export function MessageItem({
 }: MessageItemProps) {
 
   const queryClient = useQueryClient();
+  const cacheActorId = currentUserId ?? 'anonymous';
+  const workspaceMessagesKey = messageQueryKeys.workspace(cacheActorId, workspaceId);
   const pathname = usePathname();
   const workspaceSlug = pathname?.split('/').filter(Boolean)[0] || undefined;
   const [bookmarked, setBookmarked] = useState(isBookmarked);
@@ -126,9 +129,11 @@ export function MessageItem({
 
   const { mutate: retrySendMessage } = useSendMessage({
     channelId: channelId || message.channelId,
+    workspaceId,
+    currentUserId: cacheActorId,
     parentId: message.parentId || undefined,
     currentUser: {
-      id: currentUserId || '',
+      id: currentUserId || 'anonymous',
       name: message.user?.name || '',
       image: message.user?.avatarUrl,
     },
@@ -161,11 +166,11 @@ export function MessageItem({
     // Remove the failed message from cache
     if (message.parentId) {
       queryClient.setQueryData<MessageItemData[]>(
-        ['messages', message.channelId, message.parentId],
+        messageQueryKeys.thread(cacheActorId, workspaceId, message.channelId, message.parentId),
         (old) => old?.filter((cachedMessage) => cachedMessage.id !== message.id),
       );
     } else {
-      queryClient.setQueryData<MessagePages>(['messages', message.channelId], (old) =>
+      queryClient.setQueryData<MessagePages>(messageQueryKeys.timeline(cacheActorId, workspaceId, message.channelId), (old) =>
         old
           ? {
               ...old,
@@ -211,7 +216,7 @@ export function MessageItem({
     if (result.error) {
       toast.error(result.error);
     } else {
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      queryClient.invalidateQueries({ queryKey: workspaceMessagesKey });
     }
   };
 
@@ -248,7 +253,7 @@ export function MessageItem({
       if (result.error) {
         toast.error(result.error);
       } else {
-        queryClient.invalidateQueries({ queryKey: ['messages'] });
+        queryClient.invalidateQueries({ queryKey: workspaceMessagesKey });
         queryClient.invalidateQueries({ queryKey: ['pinned-messages', cId] });
         toast.success('Message unpinned');
       }
@@ -257,7 +262,7 @@ export function MessageItem({
       if (result.error) {
         toast.error(result.error);
       } else {
-        queryClient.invalidateQueries({ queryKey: ['messages'] });
+        queryClient.invalidateQueries({ queryKey: workspaceMessagesKey });
         queryClient.invalidateQueries({ queryKey: ['pinned-messages', cId] });
         toast.success('Message pinned to channel');
       }
@@ -525,7 +530,7 @@ export function MessageItem({
                             toast.error(result.error);
                           } else {
                             queryClient.invalidateQueries({
-                              queryKey: ['messages'],
+                              queryKey: workspaceMessagesKey,
                             });
                             toast.success('Message deleted');
                           }
@@ -600,7 +605,7 @@ export function MessageItem({
                 if (result.error) {
                   toast.error(result.error);
                 } else {
-                  queryClient.invalidateQueries({ queryKey: ['messages'] });
+                  queryClient.invalidateQueries({ queryKey: workspaceMessagesKey });
                   setIsEditing(false);
                   toast.success('Message updated');
                 }

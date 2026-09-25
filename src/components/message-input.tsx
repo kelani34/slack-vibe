@@ -13,6 +13,8 @@ import '@/styles/editor.css';
 
 interface MessageInputProps {
   channelId: string;
+  workspaceId: string;
+  currentUserId?: string;
   parentId?: string; // For thread replies
   compact?: boolean;
   placeholder?: string;
@@ -28,6 +30,8 @@ interface MessageInputProps {
 
 export function MessageInput({
   channelId,
+  workspaceId,
+  currentUserId,
   parentId,
   compact = false,
   placeholder = 'Message #channel...',
@@ -51,6 +55,8 @@ export function MessageInput({
   const { mutateAsync: sendMessageMutation, isPending: isSubmitting } =
     useSendMessage({
       channelId,
+      workspaceId,
+      currentUserId,
       parentId,
       currentUser,
     });

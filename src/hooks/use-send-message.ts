@@ -3,6 +3,7 @@ import { uploadFile } from '@/actions/upload';
 import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Attachment, Reaction } from '@prisma/client';
+import { messageQueryKeys } from '@/lib/message-query-keys';
 
 type SendResult = Awaited<ReturnType<typeof sendMessage>>;
 type SentMessage = Extract<SendResult, { message: unknown }>['message'];
@@ -41,6 +42,8 @@ function withMessageStatus(
 
 interface UseSendMessageProps {
   channelId: string;
+  workspaceId: string;
+  currentUserId?: string;
   parentId?: string;
   currentUser?: {
     id: string;
@@ -51,10 +54,15 @@ interface UseSendMessageProps {
 
 export function useSendMessage({
   channelId,
+  workspaceId,
+  currentUserId,
   parentId,
   currentUser,
 }: UseSendMessageProps) {
   const queryClient = useQueryClient();
+  const actorId = currentUserId ?? currentUser?.id ?? 'anonymous';
+  const timelineKey = messageQueryKeys.timeline(actorId, workspaceId, channelId);
+  const threadKey = messageQueryKeys.thread(actorId, workspaceId, channelId, parentId ?? '');
 
   function updateMessageStatus(
     tempId: string,
@@ -62,13 +70,13 @@ export function useSendMessage({
   ) {
     if (parentId) {
       queryClient.setQueryData<CachedMessage[]>(
-        ['messages', channelId, parentId],
+        threadKey,
         (old) => old?.map((message) => withMessageStatus(message, tempId, status)),
       );
       return;
     }
 
-    queryClient.setQueryData<MessagePages>(['messages', channelId], (old) =>
+    queryClient.setQueryData<MessagePages>(timelineKey, (old) =>
       old
         ? {
             ...old,
@@ -99,13 +107,13 @@ export function useSendMessage({
 
     if (parentId) {
       queryClient.setQueryData<CachedMessage[]>(
-        ['messages', channelId, parentId],
+        threadKey,
         (old) => old?.map(update),
       );
       return;
     }
 
-    queryClient.setQueryData<MessagePages>(['messages', channelId], (old) =>
+    queryClient.setQueryData<MessagePages>(timelineKey, (old) =>
       old
         ? {
             ...old,
@@ -169,7 +177,7 @@ export function useSendMessage({
       clientMutationId,
       uploadedAttachments: previouslyUploaded = [],
     }: SendMessageInput) => {
-      await queryClient.cancelQueries({ queryKey: ['messages', channelId] });
+      await queryClient.cancelQueries({ queryKey: timelineKey });
       if (scheduledAt) return {};
 
       const uploadedByIndex = new Map(previouslyUploaded.map(({ index, ...attachment }) => [index, attachment]));
@@ -212,17 +220,17 @@ export function useSendMessage({
       };
 
       if (!parentId) {
-        queryClient.setQueryData<MessagePages>(['messages', channelId], (old) =>
+        queryClient.setQueryData<MessagePages>(timelineKey, (old) =>
           old?.pages.length
             ? { ...old, pages: [[...old.pages[0], newMessage], ...old.pages.slice(1)] }
             : old,
         );
       } else {
         queryClient.setQueryData<CachedMessage[]>(
-          ['messages', channelId, parentId],
+          threadKey,
           (old) => [...(old || []), newMessage],
         );
-        queryClient.setQueryData<MessagePages>(['messages', channelId], (old) =>
+        queryClient.setQueryData<MessagePages>(timelineKey, (old) =>
           old
             ? {
                 ...old,
@@ -274,7 +282,7 @@ export function useSendMessage({
       if (!context?.tempId) return;
       if (parentId) {
         queryClient.setQueryData<CachedMessage[]>(
-          ['messages', channelId, parentId],
+          threadKey,
           (old) => {
             if (!old) return old;
             const canonicalAlreadyArrived = old.some((message) => message.id === result.message.id);
@@ -285,7 +293,7 @@ export function useSendMessage({
           },
         );
       } else {
-        queryClient.setQueryData<MessagePages>(['messages', channelId], (old) => {
+        queryClient.setQueryData<MessagePages>(timelineKey, (old) => {
           if (!old) return old;
           const canonicalAlreadyArrived = old.pages.some((page) =>
             page.some((message) => message.id === result.message.id),

@@ -10,8 +10,9 @@ import { createClient } from '@/lib/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { differenceInMinutes } from 'date-fns';
 import { X } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useProfileStore } from '@/stores/profile-store';
+import { messageQueryKeys } from '@/lib/message-query-keys';
 
 // Group messages from same user within 5 minutes
 type ThreadMessageSummary = { userId: string; createdAt: Date | string };
@@ -36,6 +37,7 @@ interface ThreadSidebarProps {
   onClose: () => void;
   highlightedMessageId?: string | null;
   currentUserId?: string;
+  workspaceId: string;
   userRole?: string;
   isArchived?: boolean;
   currentUser?: {
@@ -52,6 +54,7 @@ export function ThreadSidebar({
   onClose,
   highlightedMessageId,
   currentUserId,
+  workspaceId,
   userRole,
   isArchived = false,
   currentUser,
@@ -60,16 +63,29 @@ export function ThreadSidebar({
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const setActiveProfile = useProfileStore((state) => state.setActiveProfile);
+  const actorId = currentUserId ?? 'anonymous';
+  const parentMessageKey = useMemo(
+    () => messageQueryKeys.detail(actorId, workspaceId, parentMessageId),
+    [actorId, parentMessageId, workspaceId],
+  );
+  const threadKey = useMemo(
+    () => messageQueryKeys.thread(actorId, workspaceId, channelId, parentMessageId),
+    [actorId, channelId, parentMessageId, workspaceId],
+  );
+  const timelineKey = useMemo(
+    () => messageQueryKeys.timeline(actorId, workspaceId, channelId),
+    [actorId, channelId, workspaceId],
+  );
 
   // Fetch parent message
   const { data: parentMessage } = useQuery({
-    queryKey: ['message', parentMessageId],
+    queryKey: parentMessageKey,
     queryFn: () => getMessageById(parentMessageId),
   });
 
   // Fetch replies
   const { data: replies, isLoading, isError, refetch } = useQuery({
-    queryKey: ['messages', channelId, parentMessageId],
+    queryKey: threadKey,
     queryFn: () => getThreadMessages(parentMessageId),
   });
 
@@ -106,11 +122,11 @@ export function ThreadSidebar({
           ) return;
 
           queryClient.invalidateQueries({
-            queryKey: ['messages', channelId, parentMessageId],
+            queryKey: threadKey,
             exact: true,
           });
           queryClient.invalidateQueries({
-            queryKey: ['messages', channelId],
+            queryKey: timelineKey,
             exact: true,
           });
         }
@@ -120,7 +136,7 @@ export function ThreadSidebar({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [parentMessageId, queryClient, channelId]);
+  }, [parentMessageId, queryClient, channelId, threadKey, timelineKey]);
 
   // Scroll to bottom when replies change
   useEffect(() => {
@@ -162,6 +178,7 @@ export function ThreadSidebar({
               showThreadIndicator={false}
               compact={true}
               channelId={channelId}
+              workspaceId={workspaceId}
               currentUserId={currentUserId}
               userRole={userRole}
               isArchived={isArchived}
@@ -224,6 +241,7 @@ export function ThreadSidebar({
                       showThreadIndicator={false}
                       compact={true}
                       channelId={channelId}
+                      workspaceId={workspaceId}
                       isHighlighted={highlightedMessageId === message.id}
                       currentUserId={currentUserId}
                       userRole={userRole}
@@ -241,6 +259,8 @@ export function ThreadSidebar({
       <MessageInput
         channelId={channelId}
         parentId={parentMessageId}
+        workspaceId={workspaceId}
+        currentUserId={currentUserId}
         compact
         placeholder="Reply..."
         isArchived={isArchived}

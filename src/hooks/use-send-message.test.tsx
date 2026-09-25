@@ -6,6 +6,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { useSendMessage } from './use-send-message';
 
 const fixture = vi.hoisted(() => ({ sendMessage: vi.fn(), uploadFile: vi.fn() }));
+const timelineKey = ['messages', 'user-1', 'workspace-1', 'channel-1'] as const;
 
 vi.mock('@/actions/message', () => ({ sendMessage: fixture.sendMessage }));
 vi.mock('@/actions/upload', () => ({ uploadFile: fixture.uploadFile }));
@@ -25,7 +26,7 @@ it('shows an optimistic message and replaces it after the server confirms delive
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false } },
   });
-  queryClient.setQueryData(['messages', 'channel-1'], {
+  queryClient.setQueryData(timelineKey, {
     pages: [[]],
     pageParams: [undefined],
   });
@@ -33,13 +34,13 @@ it('shows an optimistic message and replaces it after the server confirms delive
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
   const { result } = renderHook(
-    () => useSendMessage({ channelId: 'channel-1', currentUser: { id: 'user-1', name: 'Alex' } }),
+    () => useSendMessage({ channelId: 'channel-1', workspaceId: 'workspace-1', currentUserId: 'user-1', currentUser: { id: 'user-1', name: 'Alex' } }),
     { wrapper },
   );
 
   act(() => result.current.mutate({ html: '<p>Hello</p>' }));
   await waitFor(() => {
-    const cache = queryClient.getQueryData<{ pages: Array<Array<{ id: string; isPending?: boolean }>> }>(['messages', 'channel-1']);
+    const cache = queryClient.getQueryData<{ pages: Array<Array<{ id: string; isPending?: boolean }>> }>(timelineKey);
     expect(cache?.pages[0]?.[0]).toMatchObject({ content: '<p>Hello</p>', isPending: true });
   });
 
@@ -51,7 +52,7 @@ it('shows an optimistic message and replaces it after the server confirms delive
   });
 
   await waitFor(() => {
-    const cache = queryClient.getQueryData<{ pages: Array<Array<{ id: string }>> }>(['messages', 'channel-1']);
+    const cache = queryClient.getQueryData<{ pages: Array<Array<{ id: string }>> }>(timelineKey);
     expect(cache?.pages[0]).toEqual([
       expect.objectContaining({ id: 'message-1', content: '<p>Hello</p>' }),
     ]);
@@ -68,18 +69,18 @@ it('removes the optimistic row if the realtime event arrived before the send ack
   );
 
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-  queryClient.setQueryData(['messages', 'channel-1'], { pages: [[]], pageParams: [undefined] });
+  queryClient.setQueryData(timelineKey, { pages: [[]], pageParams: [undefined] });
   const wrapper = ({ children }: PropsWithChildren) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
   const { result } = renderHook(
-    () => useSendMessage({ channelId: 'channel-1', currentUser: { id: 'user-1', name: 'Alex' } }),
+    () => useSendMessage({ channelId: 'channel-1', workspaceId: 'workspace-1', currentUser: { id: 'user-1', name: 'Alex' } }),
     { wrapper },
   );
 
   act(() => result.current.mutate({ html: '<p>Hello</p>' }));
   await waitFor(() => {
-    const cache = queryClient.getQueryData<{ pages: Array<Array<{ id: string }>> }>(['messages', 'channel-1']);
+    const cache = queryClient.getQueryData<{ pages: Array<Array<{ id: string }>> }>(timelineKey);
     expect(cache?.pages[0]?.[0]?.id).toMatch(/^temp-/);
   });
 
@@ -90,14 +91,14 @@ it('removes the optimistic row if the realtime event arrived before the send ack
     userId: 'user-1',
   };
   queryClient.setQueryData<{ pages: Array<Array<typeof canonicalMessage>> }>(
-    ['messages', 'channel-1'],
+    timelineKey,
     (old) => old ? { ...old, pages: [[...old.pages[0], canonicalMessage]] } : old,
   );
 
   await act(async () => resolveSend({ success: true, message: canonicalMessage }));
 
   await waitFor(() => {
-    const cache = queryClient.getQueryData<{ pages: Array<Array<{ id: string }>> }>(['messages', 'channel-1']);
+    const cache = queryClient.getQueryData<{ pages: Array<Array<{ id: string }>> }>(timelineKey);
     expect(cache?.pages[0]).toEqual([expect.objectContaining({ id: 'message-1' })]);
   });
 });
@@ -115,12 +116,12 @@ it('reuses the send key and completed uploads when retrying an uncertain send', 
     });
 
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-  queryClient.setQueryData(['messages', 'channel-1'], { pages: [[]], pageParams: [undefined] });
+  queryClient.setQueryData(timelineKey, { pages: [[]], pageParams: [undefined] });
   const wrapper = ({ children }: PropsWithChildren) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
   const { result } = renderHook(
-    () => useSendMessage({ channelId: 'channel-1', currentUser: { id: 'user-1', name: 'Alex' } }),
+    () => useSendMessage({ channelId: 'channel-1', workspaceId: 'workspace-1', currentUser: { id: 'user-1', name: 'Alex' } }),
     { wrapper },
   );
 
@@ -133,7 +134,7 @@ it('reuses the send key and completed uploads when retrying an uncertain send', 
       clientMutationId?: string;
       attachments: Array<{ url: string; name: string; type: string; size: number; isUploaded?: boolean }>;
     }>>;
-  }>(['messages', 'channel-1'])?.pages[0]?.[0];
+  }>(timelineKey)?.pages[0]?.[0];
   expect(failedMessage?.clientMutationId).toMatch(/^[0-9a-f-]{36}$/i);
   expect(failedMessage?.attachments[0]).toMatchObject({ ...upload, isUploaded: true });
   const clientMutationId = failedMessage?.clientMutationId;
@@ -161,7 +162,7 @@ it('keeps a rejected optimistic message visible with a failed status', async () 
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false } },
   });
-  queryClient.setQueryData(['messages', 'channel-1'], {
+  queryClient.setQueryData(timelineKey, {
     pages: [[]],
     pageParams: [undefined],
   });
@@ -169,7 +170,7 @@ it('keeps a rejected optimistic message visible with a failed status', async () 
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
   const { result } = renderHook(
-    () => useSendMessage({ channelId: 'channel-1', currentUser: { id: 'user-1', name: 'Alex' } }),
+    () => useSendMessage({ channelId: 'channel-1', workspaceId: 'workspace-1', currentUser: { id: 'user-1', name: 'Alex' } }),
     { wrapper },
   );
 
@@ -178,7 +179,7 @@ it('keeps a rejected optimistic message visible with a failed status', async () 
   await waitFor(() => {
     const cache = queryClient.getQueryData<{
       pages: Array<Array<{ id: string; isPending?: boolean; isError?: boolean }>>;
-    }>(['messages', 'channel-1']);
+    }>(timelineKey);
     expect(cache?.pages[0]?.[0]).toMatchObject({
       content: '<p>Hello</p>',
       isPending: false,
@@ -201,7 +202,7 @@ it('invalidates only the conversation schedule query after a scheduled send', as
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
   const { result } = renderHook(
-    () => useSendMessage({ channelId: 'channel-1', currentUser: { id: 'user-1', name: 'Alex' } }),
+    () => useSendMessage({ channelId: 'channel-1', workspaceId: 'workspace-1', currentUser: { id: 'user-1', name: 'Alex' } }),
     { wrapper },
   );
 

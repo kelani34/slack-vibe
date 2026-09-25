@@ -19,6 +19,7 @@ const fixture = vi.hoisted(() => ({
   setQueryData: vi.fn(),
   cancelQueries: vi.fn().mockResolvedValue(undefined),
   invalidateQueries: vi.fn(),
+  queryKeys: [] as unknown[][],
   queryClient: {
     getQueryData: (...args: unknown[]) => fixture.getQueryData(...args),
     invalidateQueries: (...args: unknown[]) => fixture.invalidateQueries(...args),
@@ -63,13 +64,16 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 vi.mock('@tanstack/react-query', () => ({
-  useInfiniteQuery: () => ({
-    data: fixture.queryData,
-    fetchNextPage: vi.fn(),
-    hasNextPage: false,
-    isFetchingNextPage: false,
-    isLoading: false,
-  }),
+  useInfiniteQuery: ({ queryKey }: { queryKey: unknown[] }) => {
+    fixture.queryKeys.push(queryKey);
+    return {
+      data: fixture.queryData,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      isLoading: false,
+    };
+  },
   useQueryClient: () => fixture.queryClient,
 }));
 vi.mock('react-intersection-observer', () => ({
@@ -80,12 +84,30 @@ beforeEach(() => {
   vi.clearAllMocks();
   fixture.handlers = [];
   fixture.subscriptionStatuses = [];
+  fixture.queryKeys = [];
   fixture.queryData = { pages: [[]], pageParams: [undefined] };
   fixture.getQueryData.mockImplementation(() => fixture.queryData);
   fixture.setQueryData.mockImplementation((_key, value) => {
     fixture.queryData = value;
   });
   fixture.getMessageContext.mockResolvedValue(null);
+});
+
+it('scopes timeline cache to the current actor, workspace, and channel', () => {
+  render(
+    <MessageList
+      channelId="channel-1"
+      currentUserId="viewer"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  expect(fixture.queryKeys).toContainEqual([
+    'messages',
+    'viewer',
+    'workspace-1',
+    'channel-1',
+  ]);
 });
 
 it('hydrates an incoming message only through the focused conversation subscription', async () => {
@@ -166,6 +188,7 @@ it('loads a bounded old-message context, scrolls to it, and returns to the lates
     <MessageList
       channelId="channel-1"
       workspaceId="workspace-1"
+      currentUserId="viewer"
       jumpToMessageId="target-message"
     />,
   );
@@ -177,7 +200,7 @@ it('loads a bounded old-message context, scrolls to it, and returns to the lates
   });
   fireEvent.click(screen.getByRole('button', { name: 'Return to latest' }));
   expect(fixture.setQueryData).toHaveBeenLastCalledWith(
-    ['messages', 'channel-1'],
+    ['messages', 'viewer', 'workspace-1', 'channel-1'],
     { pages: [[]], pageParams: [undefined] },
   );
   expect(screen.queryByRole('button', { name: 'Return to latest' })).not.toBeInTheDocument();
@@ -400,5 +423,5 @@ it('refetches the focused conversation once after realtime reconnects', () => {
   });
 
   expect(fixture.invalidateQueries).toHaveBeenCalledTimes(1);
-  expect(fixture.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['messages', 'channel-1'] });
+  expect(fixture.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['messages', 'viewer', 'workspace-1', 'channel-1'] });
 });
