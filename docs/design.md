@@ -58,7 +58,7 @@ The distinctive quality should come from a coherent conversation surface and exa
 | Composer | Rich functionality but failure/draft/IME behavior needs completion | Clear pending/error feedback, retained input, accessible toolbar, protected Enter behavior | Day one |
 | Message actions | Hover-oriented icons; forwarding placeholder | Keyboard/touch access, labels, only working actions | Day one |
 | Thread/profile | Fixed-width panes; competing state stores | One detail surface; mobile replacement; predictable Back and close | Day one core; full later |
-| Notifications | 500px popover and alternate sidebar presentation | One responsive activity surface; scope label; list/count states | Later |
+| Notifications | Viewport-bounded Activity popover and alternate sidebar presentation | One responsive activity surface; scope label; list/count states | Later |
 | Members | Individual cards per member | Compact directory rows with clear identity/role/actions | Later |
 | Search | Filters and results share command UI with asynchronous races | Stable results, visible query state, concise filter chips, keyboard instructions, accessible invalid-query feedback, and distinct loading, unavailable, transient-error/retry and selected-context states | Later |
 | Scheduled | Workspace list renders raw content text and lacks cancel | Safe preview, timezone, status and actionable controls | Later |
@@ -192,6 +192,8 @@ Separate selected, unread and hover states. Unread state combines weight/dot/cou
 ### Dialogs, popovers and sheets
 
 Use inline editing for small topics/descriptions when practical. Dialogs are appropriate for consequential settings and confirmations; contextual menus are anchored to their trigger. All floating surfaces have a defined focus entry/return target, Escape behavior and viewport collision handling. Do not maintain multiple active modal layers for routine actions.
+
+The D03 source pass gives shared Dialog and Popover content dynamic viewport height limits, viewport-width limits for popovers, and reachable overflow. The large file preview uses 1rem dynamic margins on every side instead of static `90vh`; Activity and channel details keep their stricter feature-owned bounds. Contract tests prevent those primitive guarantees from regressing. Exact production evidence covers Activity/channel details at 390×844 and a pinned-message popover plus PDF preview at 320×568. Focus return, nested Escape behavior, zoom, software keyboards, short landscape, tablet split view, physical devices and independent QA remain open.
 
 ### Search
 

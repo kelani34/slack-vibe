@@ -2,7 +2,7 @@
 
 [Index](README.md) · [Design specification](design.md) · [Animation](animation.md) · [Mobile](mobile-responsive.md) · [Performance](performance.md) · [Implementation](implementation.md)
 
-Audited 25 September 2026 against the current working tree. The scan covered 141 TSX route/component files, including 118 files under `src/components`, the shared theme and editor styles, and a live authenticated group-DM check at desktop and a 390×844 phone viewport. This is developer design evidence, not independent QA or full route acceptance.
+Audited 25 September 2026 against the current working tree. The scan covered 141 TSX route/component files, including 118 files under `src/components`, the shared theme/editor styles, live authenticated desktop and 390×844 message/DM checks, and exact production overlay checks at 320×568. This is developer design evidence, not independent QA or full route acceptance.
 
 ## Audit health
 
@@ -10,7 +10,7 @@ Audited 25 September 2026 against the current working tree. The scan covered 141
 |---|---:|---|
 | Accessibility | 3/4 | App-owned icon controls now have source-enforced names, keyboard-visible actions and 44px compact targets through shared Button/Toggle rules; assistive-technology and physical-device acceptance remain open |
 | Performance | 2/4 | Current DM stack motion uses opacity/transform and reduced-motion fallback; route bundle, long-timeline rendering and broad interaction frame budgets remain unmeasured |
-| Responsive design | 3/4 | The workspace shell uses dynamic viewport height, Activity/channel details are bounded, and DM/composer checks pass at 390×844; remaining overlays, 320px/tablet/zoom/keyboard and device acceptance stay open |
+| Responsive design | 3/4 | The shell and shared Dialog/Popover primitives use dynamic viewport bounds; exact-artifact checks cover overlays at 320×568 and DM/composer states at 390×844, while tablet/zoom/keyboard/device acceptance stays open |
 | Theming | 3/4 | All app-owned state presentation now uses measured light/dark semantic roles; the only excluded literals are third-party SVG selector values in the Recharts adapter, while light-theme visual and independent QA remain open |
 | Anti-patterns | 4/4 | No gradient text, decorative glass, hero-metric dashboard or ornamental page choreography was found in the audited core communication surfaces |
 | **Total** | **15/20** | **Good source foundations, with release-significant device, zoom, visual-evidence, assistive-technology and state-system validation still open** |
@@ -29,12 +29,13 @@ The current product does not read as a generic generated dashboard. The conversa
 - **Standard:** WCAG 2.1.1 Keyboard and 2.4.7 Focus Visible.
 - **Implemented slice:** The toolbar now has an explicit accessible name, reveals through `focus-within`, stays visible on compact layouts, exposes one visually quiet 44px overflow control, and moves reaction plus secondary compact actions into its menu. Component regression evidence covers the semantic toolbar, focus-visible class contract, compact visibility and target sizing; B13 verifies the menu and nested reaction picker at 390×844. Browser keyboard traversal, screen-reader output and physical touch-device QA remain open.
 
-### P1: Activity and channel-detail dimensions — first adaptive slice implemented
+### P1: Adaptive overlay dimensions — source implementation complete, device QA open
 
 - **Location:** `src/components/app-sidebar.tsx:355`, `src/components/channel/channel-details-dialog.tsx:46`
 - **Category:** Responsive design
 - **Original impact:** A 500px activity popover and 600px fixed-height dialog could clip or crowd small viewports, enlarged text and browser chrome.
-- **Implemented slice:** Activity now uses viewport-bounded width/height and opens above its trigger in compact navigation; channel details uses dynamic-viewport width and height bounds plus an accessible description. Component regressions cover both surfaces, and B14 verifies them at 390×844. A dedicated mobile route/sheet decision, 320px, tablet split view, 200% text, keyboard occlusion and independent QA remain open.
+- **Implemented source:** Activity uses viewport-bounded width/height and opens above its compact trigger; channel details uses dynamic viewport dimensions and an accessible description. Shared Dialog and Popover primitives now cap height to `100dvh - 2rem`, popovers cap width to `100vw - 2rem`, and overflow stays reachable. File preview owns the same dynamic margins instead of `90vh`. Contract tests cover those primitive guarantees; B14 verifies Activity/channel details at 390×844, and B19 measures a pinned-message popover plus PDF preview fully inside 320×568.
+- **Remaining evidence:** Verify focus entry/return and Escape through nested surfaces, 200%/400% zoom, software-keyboard occlusion, short landscape, tablet split view, physical iOS/Android and independent QA. Complex mobile settings may still justify a routed or sheet presentation after those checks.
 
 ### P1: Icon control naming and touch size — source implementation complete, device QA open
 
@@ -83,7 +84,7 @@ The current product does not read as a generic generated dashboard. The conversa
 | Direct-message identity | One-to-one peer avatar and group stack across sidebar/inbox/header | Large-group overflow rule, presence/status semantics, call state overlays |
 | Navigation | Separate Channels, Direct messages and Workspace groups | Compact information hierarchy, feature gating, complete focus/selection matrix |
 | Activity and search | Bounded data and distinct query/failure states are being implemented | Responsive destination rather than fixed popover, live Back/Forward/focus evidence |
-| Dialogs and panels | Radix focus/escape foundations | Viewport bounds, replacement navigation, collision and nested-surface policy |
+| Dialogs and panels | Radix focus/escape foundations plus source-wide dynamic viewport bounds | Replacement navigation, collision/focus return, zoom/keyboard and nested-surface evidence |
 | Empty/loading/error | DM/unread empty states and notification skeleton exist | Shared language and complete route-family state matrix |
 
 ## Full design coverage matrix
@@ -108,7 +109,7 @@ No feature family is exempt from the shared design, mobile, motion, speed and ac
 
 1. **D01, token roles — source implementation complete:** app-owned state colors use semantic roles with source-wide raw-color rejection and light/dark contrast fixtures; light visual, forced-colors and independent-QA evidence remain.
 2. **D02, interaction accessibility — source implementation complete:** app-owned icon controls have source-wide naming and shared compact-target contracts, plus exact-artifact phone evidence; keyboard, assistive-technology, physical-device and independent-QA evidence remain.
-3. **D03, adaptive surfaces — in progress:** activity, channel details and workspace viewport ownership are bounded with red/green regressions and a 390×844 browser smoke; remaining overlays, 320px/tablet/zoom and device evidence stay open.
+3. **D03, adaptive surfaces — source implementation complete:** shell, Dialog, Popover, Activity, channel details and file preview use dynamic viewport bounds with 320×568 and 390×844 exact-artifact evidence; tablet, zoom, keyboard, focus-return, physical-device and independent-QA evidence stay open.
 4. **D04, state language:** standardize skeleton, empty, progress, error, denied, archived and revoked states.
 5. **D05, motion foundation:** implement shared M01–M30 tokens and interruption/reduced-motion rules before expanding animation volume.
 6. **D06, route evidence:** capture desktop, phone and tablet references for each enabled route family and link the artifacts to the QA ledger.

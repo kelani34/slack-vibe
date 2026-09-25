@@ -96,7 +96,7 @@ export function TopicEditorDialog({
           Edit
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] overflow-visible">
+      <DialogContent className="sm:max-w-[425px] sm:overflow-visible">
         <DialogHeader>
           <DialogTitle>Edit Channel Topics</DialogTitle>
           <DialogDescription>

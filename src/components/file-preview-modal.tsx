@@ -30,7 +30,7 @@ export function FilePreviewModal({
 
   return (
     <Dialog open={!!url} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-5xl h-[90vh] p-0 overflow-hidden bg-background/95 border-none shadow-2xl flex flex-col">
+      <DialogContent className="flex h-[calc(100dvh-2rem)] max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-5xl flex-col overflow-hidden border-none bg-background/95 p-0 shadow-2xl">
         <DialogTitle asChild>
           <VisuallyHidden>{name || 'File Preview'}</VisuallyHidden>
         </DialogTitle>

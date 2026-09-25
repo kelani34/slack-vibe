@@ -8,18 +8,18 @@
 
 Design from the narrowest usable layout outward. Preserve authorized actions, content, form validation and recovery paths at small widths; change presentation rather than silently dropping features. A platform capability genuinely unavailable in a supported browser receives an explicit capability-specific alternative. For example, an unsupported screen-capture browser may receive a shared screen while offering a clear supported-client handoff for presenting. Do not send users to desktop for ordinary administration, scheduling, search or conversation tasks.
 
-This is a specification and focused source assessment, not a claim of implemented responsiveness. No authenticated mobile runtime, real keyboard or physical device was tested in this documentation round. The original source findings remain valid; the findings below extend their mobile-specific interpretation.
+This began as a specification and focused source assessment. The authenticated implementation follow-up now has developer browser evidence at 320×568 and 390×844, while no real software keyboard, physical mobile device or independent QA run has been completed. The table preserves the original finding and records the current repair boundary.
 
 ## Source evidence and remaining fixes
 
 | Inspected source | Observation | Risk and required work | Owner |
 |---|---|---|---|
-| [Workspace layout](<../src/app/(main)/[workspaceSlug]/layout.tsx>) | `SidebarInset` uses `h-screen`; nested main uses full height and overflow hiding | Validate dynamic browser chrome/keyboard; establish viewport and scroll ownership, then fix measured occlusion | W16/W18 |
-| [App sidebar](../src/components/app-sidebar.tsx) | Notifications request `w-[500px]` at a right-side popover | Replace with constrained content or a full-height mobile destination; verify collision/focus behavior | W16/W22 |
+| [Workspace layout](<../src/app/(main)/[workspaceSlug]/layout.tsx>) | Original `h-screen` ownership is replaced by `h-dvh min-h-0` | Source repaired; validate real browser chrome, software keyboard, rotation and scroll ownership | W16/W18 |
+| [App sidebar](../src/components/app-sidebar.tsx) | Original 500px Activity popover is viewport-bounded and changes side on compact layouts | Source repaired and checked at 390×844; verify focus return, collision, zoom and whether complex mobile use needs a route | W16/W22 |
 | [Thread sidebar](../src/components/thread-sidebar.tsx) | `w-80` pane alongside conversation; replies effect scrolls to bottom | Replace main pane on compact screens; preserve parent anchor and user reading position across keyboard/new replies | W08/W16 |
-| [Channel details](../src/components/channel/channel-details-dialog.tsx) | Fixed `h-[600px]` dialog | Fit available height with one scroll region and always reachable controls; full-page form for complex editing | W15/W16 |
-| [File preview](../src/components/file-preview-modal.tsx) | Viewer uses `h-[90vh]` and hidden overflow | Test short landscape/keyboard chrome, fit media and retain close/download controls | W09/W16 |
-| [Message item](../src/components/message-item.tsx) | Floating actions use `opacity-0 group-hover:opacity-100`; some controls are 28px | Provide visible touch/keyboard action menu and larger independent hit areas; keep native selection usable | W10/W16 |
+| [Channel details](../src/components/channel/channel-details-dialog.tsx) | Original 600px height is bounded by the dynamic viewport with one scroll region | Source repaired and checked at 390×844; verify focus, zoom, keyboard and complex-edit replacement navigation | W15/W16 |
+| [File preview](../src/components/file-preview-modal.tsx) | Original `90vh` viewer now uses 1rem `dvh`/`vw` margins and retained close/download controls | Source repaired and measured at 288×536 inside a 320×568 viewport; test short landscape, media loading/failure and physical devices | W09/W16 |
+| [Message item](../src/components/message-item.tsx) | Original hover-only actions now expose a persistent named 44px compact More menu | Source repaired and checked at 390×844; verify keyboard order, screen reader, native selection and physical touch | W10/W16 |
 | [Mobile hook](../src/hooks/use-mobile.ts) | 768px media query resolved after mount; initial boolean is false | Avoid hydration-time pane duplication, data fetching or focus jumps; layout must not depend only on delayed device state | W16 |
 
 These values are source evidence, not proof each component overflows in every browser. Existing Radix collision handling and the sidebar's mobile sheet are useful foundations. Reuse them and test the composed screen before replacing primitives or adding a responsive framework.
