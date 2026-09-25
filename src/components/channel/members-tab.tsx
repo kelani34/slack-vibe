@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { ChannelMembersSkeleton } from '@/components/channel/channel-members-skeleton';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserPlus, Search, UserMinus } from 'lucide-react';
 import { useState } from 'react';
@@ -207,9 +208,7 @@ export function MembersTab({
       {/* Current Members */}
       <ScrollArea className="h-[300px]">
         {isLoading ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">
-            Loading...
-          </p>
+          <ChannelMembersSkeleton />
         ) : filteredMembers?.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">
             No members found
