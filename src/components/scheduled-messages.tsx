@@ -181,7 +181,7 @@ export function ScheduledMessages({
           title={`${count} scheduled message${count > 1 ? 's' : ''}`}
         >
           <Clock className="h-4 w-4" />
-          <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-amber-500 text-[10px] font-medium text-white flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-warning text-[10px] font-medium text-warning-foreground flex items-center justify-center">
             {count}
           </span>
         </Button>
@@ -202,7 +202,7 @@ export function ScheduledMessages({
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                    <span className="text-xs font-medium text-warning">
                       {format(
                         new Date(message.scheduledAt!),
                         'MMM d, h:mm a'

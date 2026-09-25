@@ -116,7 +116,7 @@ export function NavChannels({
         ) : (
           <>
             {sectionLabel === 'Starred' && (
-              <Star className="mr-1 h-3 w-3 fill-yellow-400 text-yellow-400" />
+              <Star className="mr-1 h-3 w-3 fill-favorite text-favorite" />
             )}
             {sectionLabel}
           </>
@@ -171,7 +171,7 @@ export function NavChannels({
                     {isDirect ? directName : channel.name}
                   </span>
                   {channel.unreadCount ? (
-                    <span className="ml-auto text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center">
+                    <span className="ml-auto text-xs bg-unread text-unread-foreground rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center">
                       {channel.unreadCount}
                     </span>
                   ) : null}

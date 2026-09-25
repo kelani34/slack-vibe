@@ -45,7 +45,7 @@ export function StarButton({ channelId, initialStarred }: StarButtonProps) {
       <Star
         className={`h-4 w-4 ${
           optimisticStarred
-            ? 'fill-yellow-400 text-yellow-400'
+            ? 'fill-favorite text-favorite'
             : 'text-muted-foreground'
         }`}
       />

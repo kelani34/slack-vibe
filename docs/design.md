@@ -151,11 +151,11 @@ Before implementing W21–W26, prepare reference states for Home, unread/threads
 
 Use a 4px spacing base with deliberate values: 4/8/12/16/24/32. Dense rows use 8–12px vertical rhythm; major sections use 24px. Message prose should generally remain below 75 characters per line where layout allows, while full-width interaction hit areas remain available. Avoid a card around each message or member.
 
-## Semantic token proposal
+## Semantic token contract
 
 Keep existing CSS variable names where they already describe the role. Add only roles actually needed: `surface-panel`, `surface-hover`, `selection`, `selection-foreground`, `unread`, `success`, `warning`, `focus-ring`, and pending/error message states. Avoid importing chart colors into communication semantics.
 
-The first D01 implementation slice adds `saved`/`saved-surface` and `pinned`/`pinned-surface` for bookmark, pin and mention presentation. Both roles have separate light/dark values and automated foreground/surface contrast checks at the 4.5:1 text threshold. This is a narrow implemented foundation; notification categories, unread state, presence, schedules, destructive channel state and message targeting still need their own reviewed roles.
+The completed D01 source slice defines `saved`/`saved-surface`, `pinned`/`pinned-surface`, `unread`/`unread-foreground`, `success`/`success-surface`, `warning`/`warning-foreground`/`warning-surface`, `favorite` and `message-target`. They own bookmark/pin and mention presentation, unread badges/dividers, presence, schedule state, starred channels, notification meaning and deep-link highlighting. Automated tests calculate both themes' foreground/surface, badge and icon contrast and reject raw app palette/hex use outside the Recharts adapter's third-party SVG attribute selectors. Dark-theme production-artifact evidence covers the populated favorite, pin, bookmark, reaction and mention states; light visual, forced-colors and independent QA remain open.
 
 Candidate palette for prototyping, not contrast-certified output:
 

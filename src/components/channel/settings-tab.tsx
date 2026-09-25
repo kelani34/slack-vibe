@@ -99,7 +99,7 @@ export function SettingsTab({
   if (!canManage) {
     return (
       <div className="p-4 text-center text-muted-foreground flex flex-col items-center gap-2">
-        <AlertTriangle className="h-8 w-8 text-yellow-500" />
+        <AlertTriangle className="h-8 w-8 text-warning" />
         <p>You don&apos;t have permission to manage this channel&apos;s settings.</p>
       </div>
     );

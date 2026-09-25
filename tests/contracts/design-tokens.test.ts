@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { globSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 type Oklch = [number, number, number];
@@ -35,17 +35,38 @@ function contrast(first: Oklch, second: Oklch) {
   return (values[0] + 0.05) / (values[1] + 0.05);
 }
 
+function themeVariable(variables: Map<string, Oklch>, name: string) {
+  const value = variables.get(name);
+  if (!value) throw new Error(`Missing theme variable --${name}`);
+  return value;
+}
+
 describe('message state design tokens', () => {
   it.each([':root', '.dark'] as const)('keeps saved and pinned pairs readable in %s', selector => {
     const variables = readThemeVariables(selector);
 
     for (const role of ['saved', 'pinned'] as const) {
-      const foreground = variables.get(role);
-      const surface = variables.get(`${role}-surface`);
-      expect(foreground, `${selector} --${role}`).toBeDefined();
-      expect(surface, `${selector} --${role}-surface`).toBeDefined();
-      expect(contrast(foreground!, surface!)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(
+        themeVariable(variables, role),
+        themeVariable(variables, `${role}-surface`),
+      )).toBeGreaterThanOrEqual(4.5);
     }
+  });
+
+  it.each([':root', '.dark'] as const)('keeps shared application states readable in %s', selector => {
+    const variables = readThemeVariables(selector);
+
+    for (const role of ['success', 'warning'] as const) {
+      expect(contrast(
+        themeVariable(variables, role),
+        themeVariable(variables, `${role}-surface`),
+      )).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(contrast(themeVariable(variables, 'unread'), themeVariable(variables, 'background'))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(themeVariable(variables, 'unread-foreground'), themeVariable(variables, 'unread'))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(themeVariable(variables, 'warning-foreground'), themeVariable(variables, 'warning'))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(themeVariable(variables, 'favorite'), themeVariable(variables, 'background'))).toBeGreaterThanOrEqual(3);
+    themeVariable(variables, 'message-target');
   });
 
   it('routes saved, pinned and mention presentation through semantic roles', () => {
@@ -65,5 +86,18 @@ describe('message state design tokens', () => {
 
     expect(`${message}\n${panel}`).not.toMatch(/(?:bg|text)-(?:blue|amber|orange)-(?:\d+)(?:\/\d+)?/);
     expect(editor).not.toMatch(/#[0-9a-f]{6}|rgba?\(/i);
+  });
+
+  it('keeps app-owned state colors behind semantic roles', () => {
+    const rawColor = /(?:text|bg|border|fill|ring)-(?:red|green|blue|yellow|orange|amber|emerald|lime|rose|purple|indigo|sky|cyan|teal|violet|pink|slate|gray|zinc|neutral|stone)-\d+(?:\/\d+)?|#[0-9a-f]{3,8}/i;
+    const violations = globSync('src/**/*.{ts,tsx,css}', {
+      exclude: ['src/components/ui/chart.tsx'],
+    }).flatMap(path => {
+      const matches = readFileSync(path, 'utf8').match(rawColor);
+      return matches ? [`${path}: ${matches[0]}`] : [];
+    });
+
+    expect(violations).toEqual([]);
+    expect(readFileSync('src/app/globals.css', 'utf8')).toContain('var(--message-target)');
   });
 });

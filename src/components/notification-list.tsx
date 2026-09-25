@@ -64,14 +64,14 @@ export function NotificationList({ onItemClick }: NotificationListProps) {
 
   const getIcon = (type: NotificationType) => {
     switch (type) {
-      case 'MENTION': return <Bell className="h-4 w-4 text-yellow-500" />;
-      case 'REPLY': return <MessageSquare className="h-4 w-4 text-blue-500" />;
-      case 'REACTION': return <Info className="h-4 w-4 text-pink-500" />;
-      case 'CHANNEL_ADD': return <UserPlus className="h-4 w-4 text-green-500" />;
-      case 'CHANNEL_REMOVE': return <UserPlus className="h-4 w-4 text-red-500" />;
-      case 'CHANNEL_ARCHIVE': return <Archive className="h-4 w-4 text-gray-500" />;
-      case 'CHANNEL_DELETE': return <Trash2 className="h-4 w-4 text-red-500" />;
-      case 'PIN': return <Hash className="h-4 w-4 text-purple-500" />;
+      case 'MENTION': return <Bell className="h-4 w-4 text-warning" />;
+      case 'REPLY': return <MessageSquare className="h-4 w-4 text-saved" />;
+      case 'REACTION': return <Info className="h-4 w-4 text-primary" />;
+      case 'CHANNEL_ADD': return <UserPlus className="h-4 w-4 text-success" />;
+      case 'CHANNEL_REMOVE': return <UserPlus className="h-4 w-4 text-destructive" />;
+      case 'CHANNEL_ARCHIVE': return <Archive className="h-4 w-4 text-muted-foreground" />;
+      case 'CHANNEL_DELETE': return <Trash2 className="h-4 w-4 text-destructive" />;
+      case 'PIN': return <Hash className="h-4 w-4 text-pinned" />;
       default: return <Bell className="h-4 w-4" />;
     }
   };

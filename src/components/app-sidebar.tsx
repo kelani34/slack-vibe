@@ -348,7 +348,7 @@ export function AppSidebar({
                         <Bell className="h-4 w-4" />
                         <span>Activity</span>
                         {unreadCount > 0 && (
-                          <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white shadow-sm">
+                          <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-unread text-[10px] font-medium text-unread-foreground shadow-sm">
                             {unreadCount > 99 ? '99+' : unreadCount}
                           </span>
                         )}

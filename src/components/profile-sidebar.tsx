@@ -209,7 +209,7 @@ export function ProfileSidebar({
                 {/* Online indicator */}
                 <div
                   className={`absolute bottom-1 right-1 h-5 w-5 rounded-full border-2 border-background flex items-center justify-center ${
-                    isOnline ? 'bg-green-500' : 'bg-gray-400'
+                    isOnline ? 'bg-success' : 'bg-muted-foreground'
                   }`}
                 >
                   <Circle className="h-2 w-2 fill-white text-white" />
@@ -224,7 +224,7 @@ export function ProfileSidebar({
               <div className="flex items-center gap-1.5 mt-1">
                 <span
                   className={`h-2 w-2 rounded-full ${
-                    isOnline ? 'bg-green-500' : 'bg-gray-400'
+                    isOnline ? 'bg-success' : 'bg-muted-foreground'
                   }`}
                 />
                 <span className="text-sm text-muted-foreground">
@@ -274,7 +274,7 @@ export function ProfileSidebar({
                       <p className="text-xs text-muted-foreground">Email</p>
                       <a
                         href={`mailto:${user.email}`}
-                        className="text-sm text-blue-500 hover:underline"
+                        className="text-sm text-primary hover:underline"
                       >
                         {user.email}
                       </a>
@@ -290,7 +290,7 @@ export function ProfileSidebar({
                         href={user.githubUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-blue-500 hover:underline"
+                        className="text-sm text-primary hover:underline"
                       >
                         {user.githubUrl.replace('https://github.com/', '@')}
                       </a>

@@ -79,7 +79,7 @@ export function AboutTab({ channel, workspaceId }: AboutTabProps) {
             )}
           </div>
           {channel.description ? (
-            <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+            <p className="text-sm text-foreground whitespace-pre-wrap">
               {channel.description}
             </p>
           ) : (

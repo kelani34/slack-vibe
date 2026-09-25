@@ -623,9 +623,9 @@ export function MessageList({
               {isFirstUnread && (
                 <div className="relative py-2 flex items-center justify-center">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-red-500" />
+                    <div className="w-full border-t border-unread" />
                   </div>
-                  <div className="relative bg-background px-2 text-xs font-bold text-red-500">
+                  <div className="relative bg-background px-2 text-xs font-bold text-unread">
                     New Messages
                   </div>
                 </div>

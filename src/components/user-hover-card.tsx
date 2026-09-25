@@ -101,8 +101,8 @@ export function UserHoverCard({
                      {user.role}
                    </div>
                    {user.status === 'ONLINE' && (
-                     <span className="flex items-center gap-1.5 text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full dark:bg-green-900/20 dark:text-green-400">
-                       <span className="size-1.5 rounded-full bg-green-500" />
+                     <span className="flex items-center gap-1.5 text-xs text-success font-medium bg-success-surface px-2 py-0.5 rounded-full">
+                       <span className="size-1.5 rounded-full bg-success" />
                        Online
                      </span>
                    )}
