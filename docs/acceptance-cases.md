@@ -4,7 +4,7 @@
 
 ## Status, oracle and fixtures
 
-**650 concrete scenarios are catalogued; independent QA is PLANNED / NOT RUN.** They cover 107 executable F requirements; F48 is the historical umbrella mapped to detailed requirements, not a dummy executable feature. This is the baseline six cases per executable requirement (642), six additional send/retry cases under F17, and additional group-DM intent-retry and forwarding destination-state cases under F14 and F22. A small subset now has developer TDD evidence, identified under the relevant features below; that does not count as independent QA or mean every acceptance dimension ran. This catalogue is not a guarantee that every unknown defect is enumerated.
+**651 concrete scenarios are catalogued; independent QA is PLANNED / NOT RUN.** They cover 107 executable F requirements; F48 is the historical umbrella mapped to detailed requirements, not a dummy executable feature. This is the baseline six cases per executable requirement (642), six additional send/retry cases under F17, and additional group-DM intent-retry, forwarding destination-state, and lazy profile-query cases under F14, F22, and F13. A small subset now has developer TDD evidence, identified under the relevant features below; that does not count as independent QA or mean every acceptance dimension ran. This catalogue is not a guarantee that every unknown defect is enumerated.
 
 Every scenario has a stable ID `TC-Fnn-01…06`. When a scenario contains multiple outcomes or environments, split it into named assertions/data rows (`.a`, `.b`, etc.) with actual fixture/step/expected-result evidence. Six is an organizing convention, not a cap. Apply the universal cases below to **each operation** in a feature; feature-specific statements and the owning detailed spec supply its oracle. No "covered by happy path" shortcut for a different role, API, route or state.
 
@@ -190,6 +190,7 @@ Owner: W12/W22. Required layers: I,E. State: **IMPLEMENTED SLICE / QA NOT RUN**.
 - **TC-F13-04** — Self/foreign-workspace/removed targets follow explicit policy and cannot broaden access.
 - **TC-F13-05** — Profile, hover card, global compose and inbox resume the same DM.
 - **TC-F13-06** — Source migration identifies legacy DM evidence explicitly; ambiguous private channels remain preserved.
+- **TC-F13-07** — Member hover details are fetched only when opened; loading is announced, initial errors retry, and cached profile details remain visible if refresh fails.
 
 ### F14: Group DMs
 
