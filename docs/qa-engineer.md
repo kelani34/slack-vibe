@@ -38,7 +38,7 @@ For each feature, QA prepares:
 - Data/realtime/job/provider effects and the adjacent features most likely to regress.
 - Required isolated fixtures, provider sandbox access, physical devices and evidence artifacts.
 
-Use the [108-requirement test matrix](test-matrix.md), [651 concrete cases](acceptance-cases.md) and [phase traceability](delivery-traceability.md) as the starting coverage map; do not treat one happy-path case as full feature verification. The [90-feature checklist](qa-checklist.md) supplies the user-facing completion view and separate route inventory.
+Use the [108-requirement test matrix](test-matrix.md), [652 concrete cases](acceptance-cases.md) and [phase traceability](delivery-traceability.md) as the starting coverage map; do not treat one happy-path case as full feature verification. The [90-feature checklist](qa-checklist.md) supplies the user-facing completion view and separate route inventory.
 
 ## Ready for QA handoff
 

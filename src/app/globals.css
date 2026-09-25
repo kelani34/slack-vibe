@@ -3,27 +3,43 @@
 
 @custom-variant dark (&:is(.dark *));
 
+:root {
+  --motion-duration-instant: 0ms;
+  --motion-duration-press: 90ms;
+  --motion-duration-fast: 130ms;
+  --motion-duration-standard: 180ms;
+  --motion-duration-panel: 220ms;
+  --motion-duration-emphasis: 260ms;
+  --motion-duration-exit: 130ms;
+  --motion-duration-highlight: 700ms;
+  --motion-stagger-short: 24ms;
+  --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --motion-distance-feedback: 4px;
+  --motion-distance-panel: 10px;
+}
+
 .message-highlight {
   --message-highlight-color: color-mix(in oklch, var(--message-target) 22%, transparent);
-  animation: message-highlight 900ms cubic-bezier(0.16, 1, 0.3, 1) 1;
+  animation: message-highlight var(--motion-duration-highlight) var(--motion-ease-out) 1;
 }
 
 .dm-avatar-stack > [data-slot="avatar"] {
-  animation: dm-avatar-stack-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: dm-avatar-stack-enter var(--motion-duration-panel) var(--motion-ease-out) both;
 }
 
 .dm-avatar-stack > [data-slot="avatar"]:nth-child(2) {
-  animation-delay: 24ms;
+  animation-delay: var(--motion-stagger-short);
 }
 
 .dm-avatar-stack > [data-slot="avatar"]:nth-child(3) {
-  animation-delay: 48ms;
+  animation-delay: calc(var(--motion-stagger-short) * 2);
 }
 
 @keyframes dm-avatar-stack-enter {
   from {
     opacity: 0;
-    transform: translateY(2px) scale(0.94);
+    transform: translateY(var(--motion-distance-feedback)) scale(0.94);
   }
 
   to {
@@ -43,6 +59,19 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-press: 0ms;
+    --motion-duration-fast: 0ms;
+    --motion-duration-standard: 0ms;
+    --motion-duration-panel: 0ms;
+    --motion-duration-emphasis: 0ms;
+    --motion-duration-exit: 0ms;
+    --motion-duration-highlight: 0ms;
+    --motion-stagger-short: 0ms;
+    --motion-distance-feedback: 0px;
+    --motion-distance-panel: 0px;
+  }
+
   .dm-avatar-stack > [data-slot="avatar"] {
     animation: none;
   }
