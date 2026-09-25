@@ -68,7 +68,7 @@ export function ThreadSidebar({
   });
 
   // Fetch replies
-  const { data: replies, isLoading } = useQuery({
+  const { data: replies, isLoading, isError, refetch } = useQuery({
     queryKey: ['messages', channelId, parentMessageId],
     queryFn: () => getThreadMessages(parentMessageId),
   });
@@ -192,29 +192,46 @@ export function ThreadSidebar({
                   </div>
                 ))}
               </div>
+            ) : isError && !replies ? (
+              <div role="alert" className="flex flex-col items-center gap-3 py-6 text-center">
+                <p className="text-sm text-muted-foreground">Couldn’t load replies.</p>
+                <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                  Try again
+                </Button>
+              </div>
             ) : (
-              replies?.map((message, index) => {
-                const previousMessage =
-                  index > 0 ? replies[index - 1] : undefined;
-                const showAvatar = shouldShowAvatar(message, previousMessage);
+              <>
+                {isError && (
+                  <div role="alert" className="mb-3 flex items-center justify-between gap-3 border-b pb-3 text-sm text-muted-foreground">
+                    <span>Couldn’t refresh replies.</span>
+                    <Button variant="outline" size="sm" onClick={() => void refetch()}>
+                      Try again
+                    </Button>
+                  </div>
+                )}
+                {replies?.map((message, index) => {
+                  const previousMessage =
+                    index > 0 ? replies[index - 1] : undefined;
+                  const showAvatar = shouldShowAvatar(message, previousMessage);
 
-                return (
-                  <MessageItem
-                    key={message.id}
-                    message={message}
-                    showAvatar={showAvatar}
-                    onProfileSelect={handleProfileSelect}
-                    onForward={onForward}
-                    showThreadIndicator={false}
-                    compact={true}
-                    channelId={channelId}
-                    isHighlighted={highlightedMessageId === message.id}
-                    currentUserId={currentUserId}
-                    userRole={userRole}
-                    isArchived={isArchived}
-                  />
-                );
-              })
+                  return (
+                    <MessageItem
+                      key={message.id}
+                      message={message}
+                      showAvatar={showAvatar}
+                      onProfileSelect={handleProfileSelect}
+                      onForward={onForward}
+                      showThreadIndicator={false}
+                      compact={true}
+                      channelId={channelId}
+                      isHighlighted={highlightedMessageId === message.id}
+                      currentUserId={currentUserId}
+                      userRole={userRole}
+                      isArchived={isArchived}
+                    />
+                  );
+                })}
+              </>
             )}
           </div>
         </div>

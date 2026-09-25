@@ -58,8 +58,8 @@ The current product does not read as a generic generated dashboard. The conversa
 - **Location:** profile, thread and member surfaces use “Loading...” or centered spinners, while notifications use skeletons
 - **Category:** Interaction design and perceived performance
 - **Impact:** Layout can jump and users receive little indication of what will appear.
-- **Implemented slice, 25 September 2026:** Profile, thread reply, and channel-member loading now use content-shaped skeletons inside named `role="status"` regions. Shared skeletons pulse only when motion is allowed. Profile request failures now use an alert with an explicit retry action instead of looking like a missing member; stale profile content stays visible when a background refresh fails. Component tests assert accessible names, content shapes, reduced-motion behavior, retry, and retained content.
-- **Remaining:** Inventory empty/denied/archived/revoked surfaces and action progress, then apply retryable error states to remaining query-backed surfaces. Test retained content during background refresh. Do not add artificial delay or route entrance animation. Independent QA remains NOT RUN.
+- **Implemented slice, 25 September 2026:** Profile, thread reply, and channel-member loading now use content-shaped skeletons inside named `role="status"` regions. Shared skeletons pulse only when motion is allowed. Profile and thread request failures now use alerts with explicit retry actions; stale profile/reply content stays visible when a background refresh fails. Component tests assert accessible names, content shapes, reduced-motion behavior, retry, and retained content.
+- **Remaining:** Inventory empty/denied/archived/revoked surfaces and action progress, then apply retryable error states to remaining query-backed surfaces. Do not add artificial delay or route entrance animation. Independent QA remains NOT RUN.
 
 ### P2: Shell height uses the dynamic viewport — implementation complete, device QA open
 

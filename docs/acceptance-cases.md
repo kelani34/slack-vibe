@@ -254,14 +254,15 @@ Owner: W04, W10. Required layers: I,E. State: **PLANNED / NOT RUN**. See [phase 
 
 ### F19: Threads
 
-Owner: W04, W06, W08. Required layers: I,E. State: **PLANNED / NOT RUN**. See [phase mapping](delivery-traceability.md).
+Owner: W04, W06, W08. Required layers: I,E. State: **DEVELOPER-TESTED SLICE / INDEPENDENT QA NOT RUN**. See [phase mapping](delivery-traceability.md).
 
 - **TC-F19-01** — Reply is stored under the correct accessible root and updates bounded reply count; a published reply refreshes active thread and root timeline caches.
 - **TC-F19-02** — Foreign/deleted/invalid parent and wrong-channel root are rejected.
 - **TC-F19-03** — Thread pagination stays stable at equal timestamps and deleted reply boundaries.
 - **TC-F19-04** — New replies do not force a user reading earlier replies to the bottom.
 - **TC-F19-05** — Scheduled replies remain hidden and do not increment public counts before publication.
-- **TC-F19-06** — Closing/reopening a thread preserves focus, context and recoverable reply draft on mobile.
+- **TC-F19-06** — Closing/reopening a thread preserves focus, context and recoverable reply draft on mobile; initial and refresh failures offer retry while retaining cached replies.
+- Developer evidence: `src/components/thread-sidebar.test.tsx` verifies a named reply-loading status, retry after an initial query failure, retention of cached replies and retry after a refresh failure, plus exact thread/root invalidation for new published replies. This is component evidence for a narrow slice; pagination, focus/draft/mobile behavior, realtime provider delivery and independent QA remain NOT RUN.
 
 ### F20: Emoji reactions
 
