@@ -4,9 +4,9 @@
 
 ## Status, oracle and fixtures
 
-**653 concrete scenarios are catalogued; independent QA is PLANNED / NOT RUN.** They cover 107 executable F requirements; F48 is the historical umbrella mapped to detailed requirements, not a dummy executable feature. This is the baseline six cases per executable requirement (642), six additional send/retry cases under F17, and additional group-DM intent-retry, forwarding destination-state, lazy profile-query, shared-motion-token and button-press-feedback cases under F14, F22, F13 and F42. A small subset now has developer TDD evidence, identified under the relevant features below; that does not count as independent QA or mean every acceptance dimension ran. This catalogue is not a guarantee that every unknown defect is enumerated.
+**655 concrete scenarios are catalogued; independent QA is PLANNED / NOT RUN.** They cover 107 executable F requirements; F48 is the historical umbrella mapped to detailed requirements, not a dummy executable feature. This is the baseline six cases per executable requirement (642), six additional send/retry cases under F17, and additional group-DM intent-retry, forwarding destination-state, lazy profile-query, shared-motion-token, button-press-feedback, same-tab logout-cache and actor-switch cache cases. A small subset now has developer TDD evidence, identified under the relevant features below; that does not count as independent QA or mean every acceptance dimension ran. This catalogue is not a guarantee that every unknown defect is enumerated.
 
-Every scenario has a stable ID `TC-Fnn-01…06`. When a scenario contains multiple outcomes or environments, split it into named assertions/data rows (`.a`, `.b`, etc.) with actual fixture/step/expected-result evidence. Six is an organizing convention, not a cap. Apply the universal cases below to **each operation** in a feature; feature-specific statements and the owning detailed spec supply its oracle. No "covered by happy path" shortcut for a different role, API, route or state.
+Every scenario has a stable ID in the `TC-Fnn-nn` sequence (the six-case baseline may be extended with additional justified cases). When a scenario contains multiple outcomes or environments, split it into named assertions/data rows (`.a`, `.b`, etc.) with actual fixture/step/expected-result evidence. Six is an organizing convention, not a cap. Apply the universal cases below to **each operation** in a feature; feature-specific statements and the owning detailed spec supply its oracle. No "covered by happy path" shortcut for a different role, API, route or state.
 
 Synthetic fixture vocabulary: workspace A and B; owner/admin/member/outsider/removed member; public/private/archived/selected-poster channels; two members of the same conversation plus an outsider; same actor on two tabs/devices; new/existing account; empty/typical/large histories; pending/published/deleted message and root/reply; future/past/DST dates; private object and expired grant. Later fixtures add guest/bot/shared-channel roles, active/ended room generations, consented/unconsented participants, provider duplicate/stale callback, retention/hold, import provenance and native device lifecycle. Fixtures are disposable only in an explicitly identified test environment.
 
@@ -57,6 +57,8 @@ Owner: W01, W02. Required layers: I,E. State: **PLANNED / NOT RUN**. See [phase 
 - **TC-F01-04** — Expired/revoked session denies a direct protected request and preserves only a safe return destination.
 - **TC-F01-05** — Logout in one tab causes protected caches and live subscriptions to clear in the other tab after session reconciliation.
 - **TC-F01-06** — Wrong callback origin/configuration produces diagnosable redacted failure; real local and deployed round trips pass after B02/B03 repair.
+- **TC-F01-07** — Selecting Log out clears the current tab's private React Query cache before the session ends, while clearing only the signing-out actor's local drafts.
+- Developer evidence: `src/components/nav-user.test.tsx` proves a cached private message and the signing-out actor's draft are cleared before returning to login; another actor's local draft remains. Session-level cache tests exercise propagated unauthenticated state and actor changes. Real two-tab Auth.js broadcast, live subscription teardown and independent QA remain NOT RUN.
 
 ### F02: Workspace create/list/switch
 
@@ -68,6 +70,8 @@ Owner: W04. Required layers: I,E. State: **PLANNED / NOT RUN**. See [phase mappi
 - **TC-F02-04** — Workspace switch loads only the actor's target memberships and drops old private cached state.
 - **TC-F02-05** — Zero-workspace account is directed to chooser/create without an inaccessible default channel.
 - **TC-F02-06** — Last visited channel removed before reload falls back to an accessible destination without revealing its title.
+- **TC-F02-07** — A direct authenticated actor change clears the previous actor's in-memory query data before it can be reused under the new identity.
+- Developer evidence: `src/components/session-cache-boundary.test.tsx` proves cache retention for the initial authenticated actor and clearing on sign-out and actor change. Full browser account switching and independent QA remain NOT RUN.
 
 ### F03: Invite-code join
 
