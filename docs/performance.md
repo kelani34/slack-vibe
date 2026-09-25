@@ -192,3 +192,5 @@ Baseline → authorization/correctness → unread query fix → remove refresh a
 See [testing](testing.md) for fixture sizes and pass/fail protocol, [timeline](timeline.md) for timeboxes, and [operations](operations.md) for field telemetry.
 
 The W05 client cache audit also gates private root-history and thread queries until actor identity is known, avoiding requests under fallback identities. This reduces premature query work but has not been measured as a latency improvement; record request/query counts and cold/warm timing before making a speed claim.
+
+**PR #14 hosted checkpoint, 25 September 2026:** The code head `a31eaf2` passed CI runs [36164846965](https://github.com/kelani34/slack-vibe/actions/runs/36164846965) and [36164887455](https://github.com/kelani34/slack-vibe/actions/runs/36164887455), with GitGuardian and Vercel green. CodeRabbit reported that review was skipped for this base branch. This is hosted developer validation; independent QA remains open.
