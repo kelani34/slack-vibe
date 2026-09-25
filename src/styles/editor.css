@@ -94,8 +94,8 @@
 }
 
 .mention {
-  color: #3b82f6;
-  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--saved);
+  background-color: var(--saved-surface);
   border-radius: 0.25rem;
   padding: 0 0.125rem;
   box-decoration-break: clone;
@@ -103,6 +103,6 @@
 }
 
 .mention-me {
-  color: #f97316;
-  background-color: rgba(249, 115, 22, 0.1);
+  color: var(--pinned);
+  background-color: var(--pinned-surface);
 }

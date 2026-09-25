@@ -297,7 +297,7 @@ export function MessageItem({
       <div
         className={`flex items-center gap-3 px-2 py-1 rounded-lg ${
           compact ? 'mt-0.5' : 'mt-2'
-      } ${bookmarked ? 'bg-blue-50 dark:bg-blue-950/20' : ''}`}
+      } ${bookmarked ? 'bg-saved-surface' : ''}`}
       >
         <div className={`flex-shrink-0 ${compact ? 'w-7' : 'w-8'}`}>
           {/* Placeholder for alignment or small icon if desired, otherwise just empty or specific system icon */}
@@ -327,9 +327,9 @@ export function MessageItem({
         showAvatar ? 'mt-3' : 'mt-0.5'
       } ${
         message.isPinned
-          ? 'bg-amber-50/50 dark:bg-amber-950/10'
+          ? 'bg-pinned-surface'
           : bookmarked
-          ? 'bg-blue-50 dark:bg-blue-950/20'
+          ? 'bg-saved-surface'
           : ''
       } ${isHighlighted ? 'message-highlight' : ''}`}
     >
@@ -378,7 +378,7 @@ export function MessageItem({
                   title={bookmarked ? 'Remove bookmark' : 'Bookmark message'}
                 >
                   {bookmarked ? (
-                    <BookmarkCheck className="h-4 w-4 text-blue-500" />
+                    <BookmarkCheck className="h-4 w-4 text-saved" />
                   ) : (
                     <Bookmark className="h-4 w-4" />
                   )}
@@ -396,7 +396,7 @@ export function MessageItem({
                   }
                 >
                   {message.isPinned ? (
-                    <PinOff className="h-4 w-4 text-orange-500" />
+                    <PinOff className="h-4 w-4 text-pinned" />
                   ) : (
                     <Pin className="h-4 w-4" />
                   )}
@@ -579,7 +579,7 @@ export function MessageItem({
             </span>
             {message.isPinned && (
               <span
-                className="text-xs text-orange-500 flex items-center gap-0.5"
+                className="text-xs text-pinned flex items-center gap-0.5"
                 title="Pinned"
               >
                 <Pin className="h-3 w-3" />
@@ -746,7 +746,7 @@ export function MessageItem({
         {showThreadIndicator && (message._count?.replies ?? 0) > 0 && (
           <button
             onClick={() => onThreadSelect?.(message.id)}
-            className="mt-2 flex items-center gap-2 text-xs text-blue-500 hover:underline"
+            className="mt-2 flex items-center gap-2 text-xs text-primary hover:underline"
           >
             <div className="flex -space-x-2">
               {replyAuthors.map((author) => (

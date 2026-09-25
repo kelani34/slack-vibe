@@ -155,6 +155,8 @@ Use a 4px spacing base with deliberate values: 4/8/12/16/24/32. Dense rows use 8
 
 Keep existing CSS variable names where they already describe the role. Add only roles actually needed: `surface-panel`, `surface-hover`, `selection`, `selection-foreground`, `unread`, `success`, `warning`, `focus-ring`, and pending/error message states. Avoid importing chart colors into communication semantics.
 
+The first D01 implementation slice adds `saved`/`saved-surface` and `pinned`/`pinned-surface` for bookmark, pin and mention presentation. Both roles have separate light/dark values and automated foreground/surface contrast checks at the 4.5:1 text threshold. This is a narrow implemented foundation; notification categories, unread state, presence, schedules, destructive channel state and message targeting still need their own reviewed roles.
+
 Candidate palette for prototyping, not contrast-certified output:
 
 | Role | Light candidate | Dark candidate | Use |

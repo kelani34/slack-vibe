@@ -68,7 +68,7 @@ export function PinnedBookmarkedPanel({
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-7 px-2 gap-1">
-                    <Pin className="h-3.5 w-3.5 text-orange-500" />
+                    <Pin className="h-3.5 w-3.5 text-pinned" />
                     <span className="text-xs">{pinnedCount}</span>
                   </Button>
                 </PopoverTrigger>
@@ -101,7 +101,7 @@ export function PinnedBookmarkedPanel({
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-7 px-2 gap-1">
-                    <Bookmark className="h-3.5 w-3.5 text-blue-500" />
+                    <Bookmark className="h-3.5 w-3.5 text-saved" />
                     <span className="text-xs">{bookmarkedCount}</span>
                   </Button>
                 </PopoverTrigger>

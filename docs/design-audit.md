@@ -11,7 +11,7 @@ Audited 25 September 2026 against the current working tree. The scan covered 141
 | Accessibility | 2/4 | Radix primitives, semantic labels and focus-ring foundations are present; hover-only message actions and several 28px icon controls still need visible keyboard/touch treatment |
 | Performance | 2/4 | Current DM stack motion uses opacity/transform and reduced-motion fallback; route bundle, long-timeline rendering and broad interaction frame budgets remain unmeasured |
 | Responsive design | 2/4 | The live group DM reflowed cleanly at 390×844 with replacement navigation and a usable composer; fixed notification/dialog dimensions and `h-screen` shell ownership remain |
-| Theming | 2/4 | OKLCH CSS variables and light/dark semantic primitives exist; the scan found 50 hard-coded palette/hex usages across application styles and components |
+| Theming | 2/4 | OKLCH CSS variables and light/dark semantic primitives exist; D01 now routes message saved/pinned states and editor mentions through measured roles, while 36 raw palette/hex usages remain across application styles and components |
 | Anti-patterns | 4/4 | No gradient text, decorative glass, hero-metric dashboard or ornamental page choreography was found in the audited core communication surfaces |
 | **Total** | **12/20** | **Acceptable, with release-significant accessibility, responsive and token work** |
 
@@ -43,12 +43,13 @@ The current product does not read as a generic generated dashboard. The conversa
 - **Original impact:** Small controls were harder to acquire on touch and profile icon controls had no explicit accessible names.
 - **Implemented slice:** Profile Back, Edit, More and Close controls now have explicit names and 44px compact hit areas; the persistent message overflow uses the same compact target. Component regressions cover Back, More, Close and the message overflow. Remaining icon controls still require the route-wide inventory, browser focus/touch checks and independent QA. The 44px design target is a product preference; the applicable WCAG 2.2 minimum and exceptions still govern acceptance.
 
-### P1: Application states bypass semantic design tokens
+### P1: Application states bypass semantic design tokens — first slice implemented
 
 - **Location:** `src/components/notification-list.tsx:67`, `src/components/message-item.tsx:329`, `src/styles/editor.css:96`
 - **Category:** Theming
-- **Impact:** Raw yellow, blue, pink, green, red, purple and hex values can drift between light/dark themes and obscure whether color is decorative, categorical or status-bearing.
-- **Required resolution:** Define only the needed semantic roles in `globals.css`, migrate state consumers, and verify contrast for text, icon, background, selection and disabled combinations in both themes.
+- **Original impact:** Raw yellow, blue, pink, green, red, purple and hex values could drift between light/dark themes and obscure whether color was decorative, categorical or status-bearing.
+- **Implemented slice:** `saved`/`saved-surface` and `pinned`/`pinned-surface` now own bookmark, pin and editor-mention presentation. A source contract rejects raw blue/orange/amber utilities in the message and pinned/bookmarked consumers, rejects hex/RGB mention colors, and measures every foreground/surface pair at or above 4.5:1 in light and dark themes. Current measured ratios are approximately 7.1:1/8.0:1 for saved and 7.5:1/8.4:1 for pinned.
+- **Remaining resolution:** Migrate the 36 remaining raw application color usages by meaning, including notification categories, unread badges, presence, schedule status, destructive channel state and message highlight. Verify each text, icon, background, selection and disabled pairing; do not collapse distinct meanings into a single accent.
 
 ### P2: Loading feedback is inconsistent and sometimes lacks structure
 
@@ -104,7 +105,7 @@ No feature family is exempt from the shared design, mobile, motion, speed and ac
 
 ## Implementation order
 
-1. **D01, token roles:** replace state-bearing raw colors with reviewed semantic roles and contrast fixtures.
+1. **D01, token roles — in progress:** saved, pinned and mention roles are implemented with light/dark contrast fixtures; notification, unread, presence, schedule, destructive and highlight roles remain.
 2. **D02, interaction accessibility — in progress:** the message/profile priority slice is implemented with red/green component regressions; route-wide controls and browser/device/independent-QA evidence remain.
 3. **D03, adaptive surfaces — in progress:** activity, channel details and workspace viewport ownership are bounded with red/green regressions and a 390×844 browser smoke; remaining overlays, 320px/tablet/zoom and device evidence stay open.
 4. **D04, state language:** standardize skeleton, empty, progress, error, denied, archived and revoked states.
