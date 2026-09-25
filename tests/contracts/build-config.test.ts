@@ -1,4 +1,4 @@
-import { globSync } from 'node:fs';
+import { globSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import nextConfig from '../../next.config';
 
@@ -14,5 +14,13 @@ import nextConfig from '../../next.config';
       owners.set(route, [...(owners.get(route) ?? []), path]);
     }
     expect([...owners].filter(([, paths]) => paths.length > 1)).toEqual([]);
+  });
+
+  it('uses GitHub actions backed by the current Node action runtime', () => {
+    const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+
+    expect(workflow).toContain('uses: actions/checkout@v7');
+    expect(workflow).toContain('uses: actions/setup-node@v7');
+    expect(workflow).not.toMatch(/uses: actions\/(?:checkout|setup-node)@v[1-6]\b/);
   });
 });

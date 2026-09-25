@@ -2,7 +2,7 @@
 
 [Index](README.md) · [System design](system-design.md) · [Security](security.md) · [Testing](testing.md)
 
-No infrastructure was changed or deployed during this assessment. This runbook is the remaining implementation specification. The hosting provider, actual database region/plan, storage policies, deployed cron and production configuration are unknown.
+The initial assessment changed no infrastructure or deployment. The current repository candidate now includes versioned Prisma migrations and a GitHub Actions validation workflow, but it has not deployed the application or altered production infrastructure. This runbook remains the implementation specification for hosting, database region/plan, storage policies, scheduled work and production configuration that are still unknown.
 
 ## Operations impact of F69–F78
 
@@ -22,7 +22,7 @@ Operational changes are subject to [TDD](tdd.md): executable configuration rejec
 
 Use separate local/development, staging and production databases, storage buckets and auth callbacks. Staging needs isolated synthetic team data and at least two accounts for permission/realtime tests. Never run setup scripts that alter publications or cron against an unidentified database.
 
-Choose one lockfile/package manager and pin supported runtime versions. README currently mentions several package managers while the repository contains both npm and Bun lockfiles. Verify install and Prisma generation with the selected tool in a clean environment before calling setup reproducible.
+npm is the repository package-manager authority, pinned to npm 10.9.8 with Node 22.23.2 in CI and the documented local workflow. Keep `package-lock.json` authoritative, use `npm ci` for clean installs and verify Prisma generation before tests. The workflow uses `actions/checkout@v7` and `actions/setup-node@v7`; a contract test prevents reintroducing action majors that rely on the deprecated Node 20 action runtime. This action runtime is separate from the Node 22.23.2 version used to build the application.
 
 ## Configuration inventory
 
@@ -44,7 +44,7 @@ Validate required variables at startup/build/runtime boundaries appropriate to t
 
 ## Database and migration ownership
 
-No committed Prisma migration history was found. W19 must establish a baseline matching the existing database before introducing migrations. Do not run an initial destructive migration over existing data. Capture schema, grants, RLS policies, indexes, publication membership, storage policies and scheduled-job definitions as versioned infrastructure artifacts where practical.
+The initial assessment found no committed Prisma migration history. W19 has since added and registered a baseline plus additive DM, inbox, idempotency and search-index migrations. Do not replay the baseline destructively over an existing database. Capture remaining grants, RLS policies, publication membership, storage policies and scheduled-job definitions as versioned infrastructure artifacts where practical.
 
 For each change: inspect current state → back up → apply additive migration in staging → backfill in bounded batches → verify counts/invariants → deploy compatible application → switch reads/writes → remove old columns only in a later release. A reversible UI change does not make a destructive schema operation reversible.
 
