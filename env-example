@@ -15,3 +15,6 @@ AUTH_URL="http://localhost:3000"
 # OAuth Providers (Optional for local dev, needed for flow)
 AUTH_GITHUB_ID=""
 AUTH_GITHUB_SECRET=""
+
+# Vercel Cron uploads cleanup (generate a unique value of at least 16 characters)
+CRON_SECRET="replace-with-a-random-secret"

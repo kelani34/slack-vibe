@@ -296,6 +296,7 @@ model UploadIntent {
   attachment Attachment?
 
   @@index([userId, channelId, status, expiresAt], map: "upload_intents_owner_channel_expiry_idx")
+  @@index([expiresAt], map: "upload_intents_expiry_idx")
   @@map("upload_intents")
 }
 
