@@ -5,11 +5,12 @@ import { ScheduledMessages } from '@/components/scheduled-messages';
 import { FilePreviewModal } from '@/components/file-preview-modal';
 import { TypingIndicator } from '@/components/typing-indicator';
 import { useTypingIndicator } from '@/hooks/use-typing-indicator';
-import { X, File as FileIcon, FileText } from 'lucide-react';
+import { Pause, X, FileText } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useSendMessage } from '@/hooks/use-send-message';
 import Image from 'next/image';
 import '@/styles/editor.css';
+import { Progress } from '@/components/ui/progress';
 
 interface MessageInputProps {
   channelId: string;
@@ -52,7 +53,7 @@ export function MessageInput({
     avatarUrl: currentUser?.image || undefined,
   });
 
-  const { mutateAsync: sendMessageMutation, isPending: isSubmitting } =
+  const { mutateAsync: sendMessageMutation, isPending: isSubmitting, uploadProgress, activeUploadIndex, cancelUpload } =
     useSendMessage({
       channelId,
       workspaceId,
@@ -182,13 +183,43 @@ export function MessageInput({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (activeUploadIndex !== null) {
+                    if (activeUploadIndex !== i || !cancelUpload(true)) return;
+                  }
                   removeFile(i);
                 }}
-                aria-label={`Remove attachment ${file.name}`}
+                aria-label={`${activeUploadIndex === i ? 'Cancel upload' : 'Remove attachment'} ${file.name}`}
+                disabled={activeUploadIndex !== null && activeUploadIndex !== i}
                 className="absolute -top-2 -right-2 flex h-11 w-11 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus:opacity-100 md:h-6 md:w-6"
               >
                 <X className="h-3 w-3" />
               </button>
+              {(uploadProgress[i] !== undefined || activeUploadIndex === i) && (
+                <div className="mt-1 w-20">
+                  <Progress
+                    value={uploadProgress[i] ?? 0}
+                    aria-label={`Upload progress for ${file.name}`}
+                    aria-valuetext={`${uploadProgress[i] ?? 0} percent`}
+                  />
+                  <span className={activeUploadIndex === i ? 'sr-only' : 'block text-xs text-muted-foreground'} role="status">
+                    {activeUploadIndex === i
+                      ? `${uploadProgress[i] === undefined ? 'Starting' : `Uploading ${file.name}: ${uploadProgress[i]}%`}`
+                      : uploadProgress[i] === 100
+                        ? `Upload complete for ${file.name}. Press Send to retry the message.`
+                        : `Upload paused at ${uploadProgress[i]}%. Press Send to resume.`}
+                  </span>
+                  {activeUploadIndex === i && (
+                    <button
+                      type="button"
+                      aria-label={`Pause upload ${file.name}`}
+                      onClick={() => cancelUpload()}
+                      className="mt-1 flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Pause className="size-4" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -203,46 +234,6 @@ export function MessageInput({
         accept="image/*,application/pdf,.doc,.docx" // Add mime types as needed
         onChange={handleFileSelect}
       />
-
-      {/* Attachments preview */}
-      {files.length > 0 && (
-        <div className="flex gap-2 flex-wrap mb-2">
-          {files.map((file, i) => (
-            <div
-              key={i}
-              className="relative group bg-muted border rounded-md overflow-hidden size-20 flex items-center justify-center"
-            >
-              {file.type.startsWith('image/') ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={URL.createObjectURL(file)}
-                  alt={file.name}
-                  className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => setPreviewImage(URL.createObjectURL(file))}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center p-2 text-center">
-                  <FileIcon className="size-6 mb-1 text-muted-foreground" />
-                  <span className="text-[10px] truncate w-full px-1">
-                    {file.name}
-                  </span>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setFiles((prev) => prev.filter((_, idx) => idx !== i));
-                }}
-                aria-label={`Remove attachment ${file.name}`}
-                className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-bl-md bg-black/50 text-white opacity-0 transition-colors hover:bg-destructive group-hover:opacity-100 focus:opacity-100 md:h-6 md:w-6"
-              >
-                <X className="size-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Rich text editor */}
       <RichTextEditor
@@ -265,11 +256,6 @@ export function MessageInput({
         draftKey={currentUser ? `slack-vibe:draft:${currentUser.id}:${channelId}:${parentId || 'root'}` : undefined}
       />
 
-      {isSubmitting && (
-        <div className="absolute inset-0 bg-background/50 flex items-center justify-center z-10 rounded-md pointer-events-none">
-          {/* Optional: Add spinner or progress bar here if you want overlay */}
-        </div>
-      )}
     </div>
   );
 }

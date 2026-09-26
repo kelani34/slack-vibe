@@ -42,7 +42,10 @@ flowchart LR
   DB --> RT
   A --> U[Service-role upload]
   U --> ST[Supabase Storage]
-  C[SQL cron OR Edge Function] --> DB
+  VC[Vercel Cron] --> CL[Expired upload cleanup route]
+  CL --> P
+  CL --> ST
+  C[Scheduled-message publisher; deployment choice unresolved] --> DB
   G[GitHub OAuth] --> AU[Auth.js JWT session]
   AU --> A
 ```
@@ -62,6 +65,9 @@ flowchart LR
   WRITE --> DB
   DB --> JOB[One scheduled publisher and notification work]
   JOB --> DB
+  VC[Vercel Cron] --> CLEAN[Bounded expired-upload cleanup]
+  CLEAN --> DB
+  CLEAN --> STORE[Private object storage]
   DB --> RT[Authorized events]
   RT --> SYNC[One client reconciliation owner]
   SYNC --> QC
@@ -195,9 +201,11 @@ No duplicate SQL-cron-plus-Edge-Function deployment. Proposed delivery target: p
 
 ## File lifecycle
 
-Implemented foundation: authorize upload intent → return a 2-hour path-scoped signed upload token → transfer bytes directly from browser to private storage → verify stored object size/MIME and the first 12 bytes of supported media → attach the one-use finalized intent in the message transaction → generate authorized short-lived download URLs on demand. The bucket must be provisioned privately; the direct SDK transfer is not yet resumable and has no measured bandwidth, memory or progress evidence.
+Implemented foundation: authorize upload intent → return a 2-hour path-scoped signed upload token → transfer bytes directly from browser to private storage with TUS resumability and byte progress → verify stored object size/MIME and the first 12 bytes of supported media → attach the one-use finalized intent in the message transaction → generate authorized short-lived download URLs on demand. TUS uses 6 MB chunks, automatic retries and a fingerprint namespaced to the upload-intent ID; resuming first renews the same intent's path-scoped grant after rechecking its owner, workspace membership, channel membership and pending state. The composer exposes Pause, Cancel upload, and Remove attachment. Pause stops this send while preserving the selected file and local TUS checkpoint; pressing Send again renews the same intent and resumes. Cancel stops the in-flight send and removes the selected file; other selected files and message text remain in the composer. The partial remote upload is not synchronously deleted and remains subject to expiry/orphan cleanup. The bucket must be provisioned privately; provider-backed transfer, expiry recovery, bandwidth/memory measurement and real-device behavior remain unverified.
 
-Unattached uploads have an expiry and cleanup job. Message deletion follows the retention policy before removing shared objects. A file may appear in several references; cleanup must not delete bytes still referenced by an authorized published message. Content sniffing, safe rendering, and optional scanning are detailed in [security](security.md).
+The resumable protocol follows the [Supabase TUS upload guide](https://supabase.com/docs/guides/storage/uploads/resumable-uploads) and [`tus-js-client` API](https://github.com/tus/tus-js-client/blob/main/docs/api.md). Keep the Supabase direct storage hostname, token header and metadata contract aligned with the selected provider version. SDK-level unit tests cannot prove a live Storage deployment accepts the configured endpoint, token renewal or fingerprint continuation.
+
+Expired uploads use a Vercel Cron route (`/api/cron/cleanup-uploads`) scheduled daily at 03:00 UTC. It requires `Authorization: Bearer $CRON_SECRET`, selects at most 100 intents older than expiry by a one-hour grace window, and filters to the private bucket with no attachment relation. It removes the remote objects first and only then deletes still-expired, still-unattached intent rows; provider or database failures return 503 so metadata remains available for a later retry. An expiry index keeps this bounded scan from degrading into a full-table scan. The Vercel secret and live provider behavior remain deployment gates. Message deletion follows the retention policy before removing shared objects. A file may appear in several references; cleanup must not delete bytes still referenced by an authorized published message. Content sniffing, safe rendering, and optional scanning are detailed in [security](security.md).
 
 ## Data implications of the expanded product routes
 

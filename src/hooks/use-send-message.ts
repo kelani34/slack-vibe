@@ -1,21 +1,24 @@
 import { sendMessage } from '@/actions/message';
-import { createUploadIntent, finalizeUploadIntent } from '@/actions/upload';
-import { createClient } from '@/lib/supabase/client';
+import { createUploadIntent, finalizeUploadIntent, renewUploadIntent } from '@/actions/upload';
+import { uploadPrivateFile } from '@/lib/private-file-upload';
 import { type InfiniteData, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Attachment, Reaction } from '@prisma/client';
 import { messageQueryKeys } from '@/lib/message-query-keys';
+import { useRef, useState } from 'react';
 
 type SendResult = Awaited<ReturnType<typeof sendMessage>>;
 type SentMessage = Extract<SendResult, { message: unknown }>['message'];
 type UploadedAttachment = Pick<Attachment, 'name' | 'type' | 'size'> & { uploadIntentId: string };
 type IndexedUploadedAttachment = UploadedAttachment & { index: number };
+type IndexedPendingAttachment = { index: number; uploadIntentId: string };
 type SendMessageInput = {
   html: string;
   files?: File[];
   scheduledAt?: Date;
   clientMutationId?: string;
   uploadedAttachments?: IndexedUploadedAttachment[];
+  pendingAttachments?: IndexedPendingAttachment[];
 };
 type CachedAttachment = Pick<Attachment, 'url' | 'name' | 'type' | 'size'> &
   Partial<Pick<Attachment, 'id' | 'messageId' | 'createdAt' | 'uploadIntentId'>> & {
@@ -64,6 +67,12 @@ export function useSendMessage({
   const actorId = currentUserId ?? currentUser?.id ?? 'anonymous';
   const timelineKey = messageQueryKeys.timeline(actorId, workspaceId, channelId);
   const threadKey = messageQueryKeys.thread(actorId, workspaceId, channelId, parentId ?? '');
+  const [uploadProgress, setUploadProgress] = useState<Record<number, number>>({});
+  const [activeUploadIndex, setActiveUploadIndex] = useState<number | null>(null);
+  const activeUploadController = useRef<AbortController | null>(null);
+  const uploadIntentByFile = useRef(new WeakMap<File, string>());
+  const cancellationRequested = useRef(false);
+  const discardProgressOnCancel = useRef(false);
 
   function updateMessageStatus(
     tempId: string,
@@ -124,6 +133,44 @@ export function useSendMessage({
     );
   }
 
+  function storePendingAttachment(clientMutationId: string, index: number, uploadIntentId: string) {
+    const update = (message: CachedMessage): CachedMessage =>
+      message.clientMutationId !== clientMutationId
+        ? message
+        : {
+            ...message,
+            attachments: message.attachments.map((current, currentIndex) =>
+              currentIndex === index ? { ...current, uploadIntentId, isUploaded: false } : current,
+            ),
+          };
+
+    if (parentId) {
+      queryClient.setQueryData<CachedMessage[]>(threadKey, (old) => old?.map(update));
+      return;
+    }
+    queryClient.setQueryData<MessagePages>(timelineKey, (old) =>
+      old ? { ...old, pages: old.pages.map((page) => page.map(update)) } : old,
+    );
+  }
+
+  function removeOptimisticMessage(tempId: string) {
+    if (parentId) {
+      queryClient.setQueryData<CachedMessage[]>(threadKey, (old) => old?.filter((message) => message.id !== tempId));
+      queryClient.setQueryData<MessagePages>(timelineKey, (old) =>
+        old ? {
+          ...old,
+          pages: old.pages.map((page) => page.map((message) => message.id === parentId
+            ? { ...message, _count: { ...message._count, replies: Math.max(0, (message._count?.replies ?? 1) - 1) } }
+            : message)),
+        } : old,
+      );
+      return;
+    }
+    queryClient.setQueryData<MessagePages>(timelineKey, (old) =>
+      old ? { ...old, pages: old.pages.map((page) => page.filter((message) => message.id !== tempId)) } : old,
+    );
+  }
+
   const mutation = useMutation({
     mutationFn: async ({
       html,
@@ -131,11 +178,18 @@ export function useSendMessage({
       scheduledAt,
       clientMutationId,
       uploadedAttachments: previouslyUploaded = [],
+      pendingAttachments: previouslyPending = [],
     }: SendMessageInput) => {
+      const controller = new AbortController();
+      activeUploadController.current = controller;
+      cancellationRequested.current = false;
+      discardProgressOnCancel.current = false;
       const uploadedByIndex = new Map(previouslyUploaded.map(({ index, ...attachment }) => [index, attachment]));
+      const pendingByIndex = new Map(previouslyPending.map(({ index, ...attachment }) => [index, attachment]));
       const attachments: UploadedAttachment[] = [];
 
       for (const [index, file] of files.entries()) {
+        controller.signal.throwIfAborted();
         const cachedAttachment = uploadedByIndex.get(index);
         if (cachedAttachment) {
           const finalized = await finalizeUploadIntent(cachedAttachment.uploadIntentId);
@@ -144,22 +198,48 @@ export function useSendMessage({
           continue;
         }
 
-        const result = await createUploadIntent({ channelId, name: file.name, type: file.type, size: file.size });
-        if ('error' in result) throw new Error(result.error);
-        if (result.uploadIntentId) {
-          const { error } = await createClient()
-            .storage.from(result.storageBucket)
-            .uploadToSignedUrl(result.storagePath, result.token, file, { contentType: result.type });
-          if (error) throw new Error('File upload failed. Try again.');
-          const finalized = await finalizeUploadIntent(result.uploadIntentId);
-          if ('error' in finalized) throw new Error(finalized.error);
-          attachments.push(finalized);
-          if (clientMutationId) {
-            storeUploadedAttachment(clientMutationId, index, finalized);
+        setActiveUploadIndex(index);
+        const previousIntentId = pendingByIndex.get(index)?.uploadIntentId ?? uploadIntentByFile.current.get(file);
+        let intent;
+        if (previousIntentId) {
+          const finalized = await finalizeUploadIntent(previousIntentId);
+          if (!('error' in finalized)) {
+            attachments.push(finalized);
+            setActiveUploadIndex(null);
+            if (clientMutationId) storeUploadedAttachment(clientMutationId, index, finalized);
+            continue;
+          }
+          if (finalized.error !== 'Uploaded file is unavailable') throw new Error(finalized.error);
+          intent = await renewUploadIntent(previousIntentId);
+          if ('error' in intent && intent.error === 'Uploaded file is unavailable') {
+            intent = await createUploadIntent({ channelId, name: file.name, type: file.type, size: file.size });
           }
         } else {
-          throw new Error('File upload did not create an upload intent');
+          intent = await createUploadIntent({ channelId, name: file.name, type: file.type, size: file.size });
         }
+        controller.signal.throwIfAborted();
+        if ('error' in intent) throw new Error(intent.error);
+        if (!intent.uploadIntentId) throw new Error('File upload did not create an upload intent');
+        uploadIntentByFile.current.set(file, intent.uploadIntentId);
+        if (clientMutationId) storePendingAttachment(clientMutationId, index, intent.uploadIntentId);
+        setUploadProgress((current) => ({ ...current, [index]: 0 }));
+        await uploadPrivateFile({
+          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          bucket: intent.storageBucket,
+          path: intent.storagePath,
+          token: intent.token,
+          uploadIntentId: intent.uploadIntentId,
+          file,
+          signal: controller.signal,
+          onProgress: (percentage) => setUploadProgress((current) => ({ ...current, [index]: percentage })),
+        });
+        controller.signal.throwIfAborted();
+        const finalized = await finalizeUploadIntent(intent.uploadIntentId);
+        controller.signal.throwIfAborted();
+        if ('error' in finalized) throw new Error(finalized.error);
+        attachments.push(finalized);
+        setActiveUploadIndex(null);
+        if (clientMutationId) storeUploadedAttachment(clientMutationId, index, finalized);
       }
 
       const formData = new FormData();
@@ -170,6 +250,9 @@ export function useSendMessage({
       if (scheduledAt) formData.append('scheduledAt', scheduledAt.toISOString());
       if (clientMutationId) formData.append('clientMutationId', clientMutationId);
 
+      controller.signal.throwIfAborted();
+      activeUploadController.current = null;
+      setActiveUploadIndex(null);
       return sendMessage(formData);
     },
     onMutate: async ({
@@ -178,11 +261,13 @@ export function useSendMessage({
       scheduledAt,
       clientMutationId,
       uploadedAttachments: previouslyUploaded = [],
+      pendingAttachments: previouslyPending = [],
     }: SendMessageInput) => {
       await queryClient.cancelQueries({ queryKey: timelineKey });
       if (scheduledAt) return {};
 
       const uploadedByIndex = new Map(previouslyUploaded.map(({ index, ...attachment }) => [index, attachment]));
+      const pendingByIndex = new Map(previouslyPending.map(({ index, ...attachment }) => [index, attachment]));
 
       const newMessage = {
         id: `temp-${crypto.randomUUID()}`,
@@ -206,6 +291,7 @@ export function useSendMessage({
             size: uploaded?.size ?? file.size,
             fileObject: file,
             ...(uploaded ? { isUploaded: true } : {}),
+            ...(pendingByIndex.get(index) ? { uploadIntentId: pendingByIndex.get(index)?.uploadIntentId, isUploaded: false } : {}),
           };
         }),
         reactions: [],
@@ -257,17 +343,31 @@ export function useSendMessage({
       return { tempId: newMessage.id };
     },
     onError: (error, _variables, context) => {
+      activeUploadController.current = null;
+      setActiveUploadIndex(null);
+      const isAbortError = error instanceof DOMException || (error instanceof Error && error.name === 'AbortError');
+      if (cancellationRequested.current && isAbortError) {
+        if (context?.tempId) removeOptimisticMessage(context.tempId);
+        if (discardProgressOnCancel.current) setUploadProgress({});
+        cancellationRequested.current = false;
+        discardProgressOnCancel.current = false;
+        return;
+      }
       if (!context?.tempId) return;
       toast.error('Failed to send message');
       updateMessageStatus(context.tempId, { isPending: false, isError: true });
       console.error(error);
     },
     onSuccess: async (result, _variables, context) => {
+      activeUploadController.current = null;
+      setActiveUploadIndex(null);
       if ('error' in result) {
         const uploadExpired = result.error === 'One or more uploaded files are unavailable';
         toast.error(uploadExpired ? 'File upload expired. Retry to upload it again.' : result.error);
         if (context?.tempId) {
           if (uploadExpired) {
+            setUploadProgress({});
+            _variables.files?.forEach((file) => uploadIntentByFile.current.delete(file));
             const resetExpiredIntents = (message: CachedMessage): CachedMessage => {
               if (message.id !== context.tempId) return message;
               return {
@@ -299,6 +399,8 @@ export function useSendMessage({
       }
 
       if (result.scheduled) {
+        setUploadProgress({});
+        _variables.files?.forEach((file) => uploadIntentByFile.current.delete(file));
         toast.success('Message scheduled');
         await queryClient.invalidateQueries({
           queryKey: parentId
@@ -309,6 +411,8 @@ export function useSendMessage({
       }
 
       if (!context?.tempId) return;
+      setUploadProgress({});
+      _variables.files?.forEach((file) => uploadIntentByFile.current.delete(file));
       if (parentId) {
         queryClient.setQueryData<CachedMessage[]>(
           threadKey,
@@ -348,9 +452,20 @@ export function useSendMessage({
     };
   }
 
+  function cancelUpload(discardAttachment = false) {
+    if (!activeUploadController.current || activeUploadIndex === null) return false;
+    cancellationRequested.current = true;
+    discardProgressOnCancel.current = discardAttachment;
+    activeUploadController.current.abort();
+    return true;
+  }
+
   return {
     ...mutation,
     mutate: (input: SendMessageInput) => mutation.mutate(withClientMutationId(input)),
     mutateAsync: (input: SendMessageInput) => mutation.mutateAsync(withClientMutationId(input)),
+    uploadProgress,
+    activeUploadIndex,
+    cancelUpload,
   };
 }

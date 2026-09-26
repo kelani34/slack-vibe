@@ -237,3 +237,7 @@ Forum links authorize both forum kind and topic parent. Call/recording links nev
 ## Reference research
 
 The priorities are product recommendations for Slack Vibe, not a claim that every communication product needs every Slack feature. Slack documents [draft continuation](https://slack.com/help/articles/201457107-Send-and-read-messages), [thread organization](https://slack.com/help/articles/115000769927-Use-threads-to-organize-discussions), [quiet hours and DND](https://slack.com/help/articles/214908388-Pause-your-Slack-notifications), and [invitation lifecycle management](https://slack.com/help/articles/360060363633-Manage-pending-invitations-and-invite-links-for-your-workspace). These support the choice to prioritize everyday completion and attention management. The routes, grouping, acceptance criteria and priorities here are this project's own design.
+
+## Operational route (not a user destination)
+
+`GET /api/cron/cleanup-uploads` is an authenticated Vercel Cron endpoint, not an R79 navigation route. It requires `Authorization: Bearer $CRON_SECRET`, runs daily, and processes at most 100 expired private upload intents with no attachment reference after a one-hour grace period. See [system design](system-design.md#file-lifecycle) and [operations](operations.md#storage-setup-and-failure).

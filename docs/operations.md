@@ -33,6 +33,7 @@ npm is the repository package-manager authority, pinned to npm 10.9.8 with Node 
 | `NEXT_PUBLIC_SUPABASE_URL` | Browser/service project address | Public configuration, environment-specific |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser project key | Public client key; safety depends on grants/policies, not secrecy |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server upload/admin access | Secret; missing from example env; never client-bundled or logged |
+| `CRON_SECRET` | Authenticates Vercel Cron requests for expired-upload cleanup | Secret; configure in Vercel and local environments; never commit or log the value |
 | `AUTH_SECRET` | Auth.js session protection | Secret; strong generation and rotation plan |
 | `AUTH_URL` | Auth callback origin | Correct per environment; verify proxy/host behavior |
 | `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | GitHub OAuth application | Provider config and secret; callbacks registered per environment |
@@ -65,7 +66,7 @@ Distinguish runtime pooling from direct migration connections. Verify prepared-s
 1. Select exact revision and document enabled feature gates and outstanding limitations.
 2. Install reproducibly; generate Prisma; run type/lint/test/build under release configuration.
 3. Apply compatible migrations to staging; verify policies and anonymous/outsider denial.
-4. Deploy application and exactly one scheduled publisher if scheduling is enabled.
+4. Deploy application and exactly one scheduled publisher if scheduling is enabled; configure `CRON_SECRET` before enabling the upload-cleanup cron.
 5. Verify storage bucket privacy and object access with positive and negative accounts.
 6. Exercise login, authorized read/send, second-client update, revoke access, logout, and failed-send recovery.
 7. Confirm monitoring receives a synthetic non-sensitive error and health counters.
@@ -114,7 +115,7 @@ Pause duplicate or faulty trigger, retain pending records, inspect claim/failure
 
 Before enabling uploads, create `workspace-files-private` as a non-public bucket with a 10 MB per-object limit and the exact MIME allowlist in `src/actions/upload.ts`. Keep the existing `workspace-files` bucket unchanged until profile-avatar and legacy-file migration is separately rehearsed. Verify anonymous reads fail, a signed upload token writes only its random channel/user path, finalization rejects wrong size/type/signature, and signed reads require current channel membership. The app intentionally fails closed if this bucket is absent. Supabase supports private bucket creation and per-bucket MIME/size restrictions in its [bucket setup guide](https://supabase.com/docs/guides/storage/buckets/creating-buckets).
 
-Stop new grants if authorization/finalization is broken; preserve local draft text and finalized upload references. A signed upload token is a bearer credential and may be used until its two-hour expiry; finalization and message send recheck live membership. Retry transfer/finalization independently. Cleanup jobs must have a grace period, intent/attachment reference checks and provider deletion confirmation before retiring metadata. Orphan cleanup is not implemented yet.
+Stop new grants if authorization/finalization is broken; preserve local draft text and finalized upload references. A signed upload token is a bearer credential and may be used until its two-hour expiry; finalization and message send recheck live membership. Retry transfer/finalization independently. The daily Vercel Cron route `/api/cron/cleanup-uploads` waits one extra hour after intent expiry, processes at most 100 rows, checks that no attachment references the intent, removes objects from the private bucket first, and only then deletes still-eligible intent rows. Storage or database failures return 503 and preserve metadata for a later retry. Configure `CRON_SECRET` in the Vercel project and local environment; Vercel supplies it as a Bearer authorization header. This job is separate from scheduled-message publication, so it does not create a second publisher for that flow. Vercel cron timing is approximate and the selected daily cadence keeps the schedule compatible with its Hobby limits; provider-backed behavior and deployment configuration remain unverified. See [Vercel Cron security and management](https://vercel.com/docs/cron-jobs/manage-cron-jobs) and [usage and timing limits](https://vercel.com/docs/cron-jobs/usage-and-pricing).
 
 ### Bad deployment or schema migration
 
