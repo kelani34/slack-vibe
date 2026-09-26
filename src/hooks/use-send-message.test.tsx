@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { PropsWithChildren } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
+import { toast } from 'sonner';
 
 import { useSendMessage } from './use-send-message';
 
@@ -278,6 +279,52 @@ it('publishes byte-based upload progress while a file transfer is active', async
   await waitFor(() => expect(result.current.uploadProgress[0]).toBe(42));
   await act(async () => { finishUpload(); await pending; });
   expect(result.current.uploadProgress).toEqual({});
+});
+
+it('pauses the active upload without leaving a failed optimistic message or losing the reusable intent', async () => {
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:notes');
+  const file = new File(['important'], 'notes.txt', { type: 'text/plain' });
+  const intent = { uploadIntentId: '7a1d4f5f-3f38-4ec0-9723-ff379e5cbb69', name: file.name, type: file.type, size: file.size };
+  fixture.createUploadIntent.mockResolvedValue({ ...intent, storageBucket: 'workspace-files-private', storagePath: 'channel-1/user-1/resumable.txt', token: 'signed-upload-token' });
+  fixture.renewUploadIntent.mockResolvedValue({ ...intent, storageBucket: 'workspace-files-private', storagePath: 'channel-1/user-1/resumable.txt', token: 'renewed-token' });
+  fixture.finalizeUploadIntent.mockResolvedValueOnce({ error: 'Uploaded file is unavailable' }).mockResolvedValueOnce(intent);
+  fixture.sendMessage.mockResolvedValue({ success: true, message: { id: 'message-1', content: '<p>Document</p>', channelId: 'channel-1', userId: 'user-1' } });
+  let attempt = 0;
+  fixture.uploadPrivateFile.mockImplementation(({ signal, onProgress }: { signal: AbortSignal; onProgress: (percentage: number) => void }) => {
+    attempt += 1;
+    onProgress(attempt === 1 ? 37 : 100);
+    if (attempt > 1) return Promise.resolve();
+    return new Promise<void>((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(new DOMException('Upload paused', 'AbortError')), { once: true });
+    });
+  });
+
+  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  queryClient.setQueryData(timelineKey, { pages: [[]], pageParams: [undefined] });
+  const wrapper = ({ children }: PropsWithChildren) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  const { result } = renderHook(
+    () => useSendMessage({ channelId: 'channel-1', workspaceId: 'workspace-1', currentUser: { id: 'user-1', name: 'Alex' } }),
+    { wrapper },
+  );
+
+  let pending!: Promise<unknown>;
+  act(() => { pending = result.current.mutateAsync({ html: '<p>Document</p>', files: [file] }); });
+  await waitFor(() => expect(result.current.uploadProgress[0]).toBe(37));
+  act(() => result.current.cancelUpload());
+  await act(async () => { await expect(pending).rejects.toMatchObject({ name: 'AbortError' }); });
+
+  expect(queryClient.getQueryData<{ pages: Array<Array<{ id: string }>> }>(timelineKey)?.pages[0]).toEqual([]);
+  expect(result.current.uploadProgress[0]).toBe(37);
+  expect(fixture.sendMessage).not.toHaveBeenCalled();
+  expect(toast.error).not.toHaveBeenCalled();
+
+  await act(async () => {
+    await result.current.mutateAsync({ html: '<p>Document</p>', files: [file] });
+  });
+  expect(fixture.createUploadIntent).toHaveBeenCalledOnce();
+  expect(fixture.renewUploadIntent).toHaveBeenCalledWith(intent.uploadIntentId);
+  expect(fixture.uploadPrivateFile).toHaveBeenLastCalledWith(expect.objectContaining({ file, uploadIntentId: intent.uploadIntentId, token: 'renewed-token' }));
+  expect(fixture.sendMessage).toHaveBeenCalledOnce();
 });
 
 it('keeps a rejected optimistic message visible with a failed status', async () => {
